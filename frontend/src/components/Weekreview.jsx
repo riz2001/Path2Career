@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import Usernavbar1 from './Usernavbar1';
 
 
 const Weekreview = () => {
@@ -44,7 +45,7 @@ useEffect(() => {
 
   return (
     <div>
-
+<Usernavbar1/>
       <br />
       <div className="week-review">
         <h2 className="title">Select Company</h2>

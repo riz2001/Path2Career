@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
-import Mcanavbar from './Mcaanavbar';
+import Mbanavbar from './Mbanavbar';
 
 
-const Joblist = () => {
+
+const Mbajoblist = () => {
   const [jobs, setJobs] = useState([]);
   const navigate = useNavigate();
 
@@ -23,12 +24,12 @@ const Joblist = () => {
   }, []);
 
   const handleJobClick = (jobId) => {
-    navigate(`/jobs/${jobId}/mcaregistrations`);
+    navigate(`/jobs/${jobId}/mbaregistrations`);
   };
 
   return (
     <div>
-   <Mcanavbar/>
+   <Mbanavbar/>
       <br />
       <div className="job-list">
         <h2 className="title">Available Jobs</h2>
@@ -107,4 +108,4 @@ const Joblist = () => {
   );
 };
 
-export default Joblist;
+export default Mbajoblist;

@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
-import Mcanavbar from './Mcaanavbar';
 
 
 
-const Qmcasubmssions = () => {
+const MbaweekSubmissions = () => {
   const { week } = useParams(); // Get the week number from the URL
   const [submissions, setSubmissions] = useState([]);
   const [nonSubmittedUsers, setNonSubmittedUsers] = useState([]);
@@ -26,7 +25,7 @@ const Qmcasubmssions = () => {
     const fetchSubmissions = async () => {
       try {
         const response = await axios.get(
-          `http://localhost:5000/api/mcasubmissions-and-non-submissions/${week}?courseYear=${courseYear}&company=${companyFilter}`
+          `http://localhost:5000/api/mbasubmissions-and-non-submissionscompiler/${week}?courseYear=${courseYear}&company=${companyFilter}`
         );
         const { submissions, nonSubmittedUsers } = response.data;
         setSubmissions(submissions);
@@ -79,9 +78,9 @@ const Qmcasubmssions = () => {
   const uniqueCompanies = [...new Set(submissions.map(sub => sub.company))];
 
   return (
-   <div>
-   <Mcanavbar/>
-   <div>
+    <div>
+
+
       <div className="submissions-container">
         <h2 className="title">Submissions for Week {week}</h2>
 
@@ -163,7 +162,7 @@ const Qmcasubmssions = () => {
             </thead>
             <tbody>
               {displaySubmissions.map((submission) => {
-                const isLate = new Date(submission.submissionTime) > new Date(submission.dueDate);
+                const isLate = new Date(submission.submissionDate) > new Date(submission.dueDate);
                 return (
                   <tr key={submission._id}>
                     <td>{submission.userId ? submission.userId.name : 'Unknown User'}</td>
@@ -172,8 +171,13 @@ const Qmcasubmssions = () => {
                     <td>{submission.userId ? submission.userId.courseYear : 'N/A'}</td>
                     <td>{submission.userId ? submission.userId.email : 'N/A'}</td>
                     <td>{submission.company || 'N/A'}</td>
-                    <td>{submission.score}</td>
-                    <td>{new Date(submission.submissionTime).toLocaleString()}</td>
+                    <td>
+    {submission.totalTestCases > 0 
+        ? `${submission.passedCount}/${submission.totalTestCases}` 
+        : 'N/A'}
+</td>
+
+                    <td>{new Date(submission. submissionDate).toLocaleString()}</td>
                     <td style={{ color: isLate ? 'red' : 'green' }}>{isLate ? 'Late' : 'On Time'}</td>
                   </tr>
                 );
@@ -262,8 +266,7 @@ const Qmcasubmssions = () => {
       
       </div>
     </div>
-    </div>
   );
 };
 
-export default Qmcasubmssions;
+export default MbaweekSubmissions;

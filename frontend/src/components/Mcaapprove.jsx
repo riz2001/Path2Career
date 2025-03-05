@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Mcanavbar from './Mcaanavbar';
 
 const Approve = () => {
     const [unapprovedUsers, setUnapprovedUsers] = useState([]);
@@ -73,6 +74,8 @@ const Approve = () => {
         .sort((a, b) => a.rollno.localeCompare(b.rollno));
 
     return (
+        <div>
+            <Mcanavbar/>
         <div style={styles.container}>
             <br />
             <h2 style={styles.heading}>Approve MCA Users</h2>
@@ -178,6 +181,7 @@ const Approve = () => {
                     </div>
                 </div>
             )}
+        </div>
         </div>
     );
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Mbanavbar from './Mbanavbar';
 
 const Mbapprove = () => {
     const [unapprovedUsers, setUnapprovedUsers] = useState([]);
@@ -73,7 +74,9 @@ const Mbapprove = () => {
         .sort((a, b) => a.rollno.localeCompare(b.rollno));
 
     return (
+     
         <div style={styles.container}>
+               <Mbanavbar/>
             <br />
             <h2 style={styles.heading}>Approve MCA Users</h2>
             {message && <p style={styles.message}>{message}</p>}

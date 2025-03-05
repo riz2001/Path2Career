@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
+import Mcanavbar from './Mcaanavbar';
 
 
 const McajobRegistrations = () => {
@@ -52,7 +53,7 @@ const McajobRegistrations = () => {
   return (
     <div>
   
-
+<Mcanavbar/>
       <div>
         <div style={styles.registrationsContainer}>
           <h2 style={styles.title}>Users Registered for Job</h2>

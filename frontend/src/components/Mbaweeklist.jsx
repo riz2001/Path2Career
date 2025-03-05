@@ -1,44 +1,49 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 import Mcanavbar from './Mcaanavbar';
+import Mbanavbar from './Mbanavbar';
 
 
-const Joblist = () => {
-  const [jobs, setJobs] = useState([]);
-  const navigate = useNavigate();
+const Mbaweekslist = () => {
+  const [weeks, setWeeks] = useState([]);
+  const [error, setError] = useState(null);
 
+  // Fetch weeks from the backend when the component mounts
   useEffect(() => {
-    axios.get('http://localhost:5000/jobs')
-      .then(response => {
-        if (response.data.status === 'success') {
-          setJobs(response.data.jobs);
-        } else {
-          alert('Error fetching jobs');
-        }
-      })
-      .catch(error => {
-        console.error(error);
-      });
+    const fetchWeeks = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/weeks');
+        setWeeks(response.data);
+      } catch (error) {
+        setError('Error fetching weeks');
+      }
+    };
+
+    fetchWeeks();
   }, []);
 
-  const handleJobClick = (jobId) => {
-    navigate(`/jobs/${jobId}/mcaregistrations`);
-  };
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
 
   return (
     <div>
-   <Mcanavbar/>
-      <br />
-      <div className="job-list">
-        <h2 className="title">Available Jobs</h2>
-        <div className="card-container">
-          {jobs.map(job => (
-            <div key={job._id} className="card" onClick={() => handleJobClick(job._id)} style={{ cursor: 'pointer' }}>
-              <h3 className="card-title">{job.title}</h3>
-            </div>
-          ))}
-        </div>
+<Mbanavbar/>
+   <br></br>
+    <div className="main-page">
+      <h2 className="title">Available Weeks</h2>
+      <div className="card-container">
+        {weeks.map((week) => (
+          <div key={week} className="card">
+            <Link to={`/mbasubmissions/${week}`} className="card-link">
+              <h3 className="card-title">Week {week}</h3>
+            </Link>
+          
+          </div>
+         
+        ))}
+          </div>
       </div>
       <style jsx>{`
         /* Apply background color to the entire page */
@@ -49,7 +54,7 @@ const Joblist = () => {
           font-family: Arial, sans-serif;
         }
 
-        .job-list {
+        .main-page {
           width: 80%;
           max-width: 1000px;
           margin: 0 auto;
@@ -91,20 +96,28 @@ const Joblist = () => {
           background-color: #0056b3; /* Darker blue on hover */
         }
 
+        .card-link {
+          text-decoration: none;
+          color: #ffffff;
+        }
+
+        .card-link:hover {
+          text-decoration: underline;
+        }
+
         .card-title {
           font-size: 18px;
           color: #fff; /* White text for better readability */
-          text-decoration: none; /* Remove default underline */
-          transition: text-decoration 0.2s ease; /* Smooth transition for underline */
         }
 
-        .card-title:hover {
-          text-decoration: underline; /* Add underline on hover */
-          text-decoration-color: white; /* Set underline color to white */
+        .error {
+          text-align: center;
+          font-size: 18px;
+          color: #ff0000;
         }
       `}</style>
     </div>
   );
 };
 
-export default Joblist;
+export default Mbaweekslist;

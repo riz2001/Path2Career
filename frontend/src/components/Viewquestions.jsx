@@ -16,16 +16,18 @@ function ViewQuestions() {
   const [submitted, setSubmitted] = useState(false);
   const [questionsGenerated, setQuestionsGenerated] = useState(false);
   const [capturedImage, setCapturedImage] = useState(null);
-  const [emotion, setEmotion] = useState("No Emotion Detected"); // ✅ Store detected emotion
+  const [emotion, setEmotion] = useState("No Emotion Detected");
+  const [timer, setTimer] = useState(180); // ✅ 3-minute timer per question
+  const [totalTimeTaken, setTotalTimeTaken] = useState(0); // ✅ Track total time
   const webcamRef = useRef(null);
 
   const { transcript, listening, resetTranscript } = useSpeechRecognition();
 
   useEffect(() => {
-    loadFaceApiModels(); 
+    loadFaceApiModels();
     fetchInterview();
   }, []);
-  
+
   useEffect(() => {
     if (!listening && transcript) {
       setUserAnswers((prevAnswers) => ({
@@ -36,20 +38,44 @@ function ViewQuestions() {
     }
   }, [transcript, listening, currentQuestionIndex]);
 
+  useEffect(() => {
+    if (!submitted && questionsGenerated) {
+      setTimer(180);
+      const countdown = setInterval(() => {
+        setTimer((prev) => {
+          if (prev === 1) {
+            clearInterval(countdown);
+            handleNextQuestion();
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(countdown);
+    }
+  }, [currentQuestionIndex, questionsGenerated, submitted]);
+
+  useEffect(() => {
+    if (questionsGenerated) {
+      const totalTimeInterval = setInterval(() => {
+        setTotalTimeTaken((prev) => prev + 1);
+      }, 1000);
+
+      return () => clearInterval(totalTimeInterval);
+    }
+  }, [questionsGenerated]);
+
   const loadFaceApiModels = async () => {
     try {
       console.log("🔄 Loading Face-api.js models...");
-      
-      await faceapi.nets.tinyFaceDetector.loadFromUri("/models"); // ✅ Loads tiny_face_detector
-      await faceapi.nets.faceExpressionNet.loadFromUri("/models"); // ✅ Loads face_expression
-      
+      await faceapi.nets.tinyFaceDetector.loadFromUri("/models");
+      await faceapi.nets.faceExpressionNet.loadFromUri("/models");
       console.log("✅ Face-api.js models loaded successfully.");
     } catch (error) {
       console.error("❌ Error loading Face-api.js models:", error);
     }
   };
-  
-  
+
   const fetchInterview = async () => {
     try {
       const response = await axios.get(`http://localhost:5000/api/interviews/${interviewId}`);
@@ -72,34 +98,28 @@ function ViewQuestions() {
     setLoading(false);
   };
 
-  const readQuestionAloud = (text) => {
-    if ("speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
-      window.speechSynthesis.speak(utterance);
+  const handleNextQuestion = () => {
+    if (currentQuestionIndex < interview.questions.length - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+      resetTranscript();
     } else {
-      alert("Sorry, your browser does not support text-to-speech.");
+      submitAnswers();
     }
   };
 
   const captureImageAndDetectEmotion = async () => {
     if (!webcamRef.current) return;
-  
+
     const imageSrc = webcamRef.current.getScreenshot();
     setCapturedImage(imageSrc);
-  
+
     const video = webcamRef.current.video;
     if (!video) return;
-  
-    // ✅ Ensure models are loaded before running detection
-    if (!faceapi.nets.tinyFaceDetector.isLoaded || !faceapi.nets.faceExpressionNet.isLoaded) {
-      console.error("❌ Models are not loaded yet! Waiting...");
-      return;
-    }
-  
+
     const detection = await faceapi
       .detectSingleFace(video, new faceapi.TinyFaceDetectorOptions())
       .withFaceExpressions();
-  
+
     if (detection) {
       const maxEmotion = Object.keys(detection.expressions).reduce((a, b) =>
         detection.expressions[a] > detection.expressions[b] ? a : b
@@ -108,10 +128,59 @@ function ViewQuestions() {
     } else {
       setEmotion("No Emotion Detected");
     }
-    console.log(faceapi.nets.tinyFaceDetector.isLoaded, faceapi.nets.faceExpressionNet.isLoaded);
-
   };
-  
+
+  const submitAnswers = async () => {
+    setLoading(true);
+    setSubmitted(true);
+
+    const userId = sessionStorage.getItem("userId");
+    if (!userId) {
+      alert("User not logged in! Please log in again.");
+      setLoading(false);
+      return;
+    }
+
+    const formattedAnswers = interview.questions.map((q, index) => ({
+      question: q.question,
+      userAnswer: userAnswers[index] || "No answer given",
+    }));
+
+    try {
+      const checkSubmission = await axios.get(`http://localhost:5000/api/check-submission/${interviewId}/${userId}`);
+      if (checkSubmission.data.alreadySubmitted) {
+        alert("You have already submitted this interview!");
+        setLoading(false);
+        return;
+      }
+
+      const feedbackResponse = await axios.post("http://localhost:5000/api/generate-overall-feedback", {
+        interviewId,
+        answers: formattedAnswers,
+      });
+
+      const { feedback, overallRating } = feedbackResponse.data;
+
+      await axios.post("http://localhost:5000/api/submit-interview", {
+        interviewId,
+        userId,
+        jobPosition: interview.jobPosition,
+        experienceRequired: interview.jobExperience,
+        answers: formattedAnswers,
+        overallRating,
+        feedback,
+        emotionDetected: emotion,
+        totalTimeTaken,
+      });
+
+      setFeedback(feedback);
+      setOverallRating(overallRating);
+    } catch (error) {
+      console.error("❌ Error generating feedback or saving submission:", error);
+    }
+
+    setLoading(false);
+  };
 
   return (
     <div>
@@ -125,66 +194,37 @@ function ViewQuestions() {
             {loading ? "Generating..." : "Start Interview"}
           </button>
         </>
-      ) : interview ? (
+      ) : !submitted ? (
         <>
-          {interview.questions.length > 0 ? (
-            <>
-              <h3>Question {currentQuestionIndex + 1}:</h3>
-              <p>{interview.questions[currentQuestionIndex]?.question}</p>
+          <h3>Question {currentQuestionIndex + 1}:</h3>
+          <p>{interview.questions[currentQuestionIndex]?.question}</p>
+          <h4>Time Left: {Math.floor(timer / 60)}:{timer % 60 < 10 ? `0${timer % 60}` : timer % 60} ⏳</h4>
 
-              <button onClick={() => readQuestionAloud(interview.questions[currentQuestionIndex]?.question)}>
-                Read Question
-              </button>
+          <Webcam audio={false} ref={webcamRef} screenshotFormat="image/jpeg" width={250} />
+          <button onClick={captureImageAndDetectEmotion}>Capture & Detect Emotion</button>
+          <h4>Detected Emotion: {emotion}</h4>
 
-              {/* ✅ Webcam Preview */}
-              <div style={{ marginTop: "20px" }}>
-                <Webcam
-                  audio={false}
-                  ref={webcamRef}
-                  screenshotFormat="image/jpeg"
-                  width={250}
-                />
-                <button onClick={captureImageAndDetectEmotion}>Capture & Detect Emotion</button>
-              </div>
+          <button onClick={() => SpeechRecognition.startListening({ continuous: false })} disabled={listening}>
+            {listening ? "Listening..." : "Start Recording"}
+          </button>
+          <button onClick={SpeechRecognition.stopListening} disabled={!listening}>Stop Recording</button>
 
-              {/* ✅ Show Captured Image & Detected Emotion */}
-              {capturedImage && (
-                <div>
-                  <h4>Captured Image:</h4>
-                  <img src={capturedImage} alt="Captured" width={250} />
-                  <h4>Detected Emotion: {emotion}</h4>
-                </div>
-              )}
-
-              <div>
-                <h4>Your Answer:</h4>
-                <p>{userAnswers[currentQuestionIndex] || "No answer recorded yet"}</p>
-
-                <button onClick={() => SpeechRecognition.startListening({ continuous: false })} disabled={listening}>
-                  {listening ? "Listening..." : "Start Recording"}
-                </button>
-
-                <button onClick={SpeechRecognition.stopListening} disabled={!listening}>
-                  Stop Recording
-                </button>
-
-                <button onClick={resetTranscript}>Reset Answer</button>
-              </div>
-
-              <button onClick={() => setCurrentQuestionIndex((prev) => Math.max(prev - 1, 0))} disabled={currentQuestionIndex === 0}>
-                Previous
-              </button>
-
-              <button onClick={() => setCurrentQuestionIndex((prev) => Math.min(prev + 1, interview.questions.length - 1))}>
-                Next
-              </button>
-            </>
-          ) : (
-            <p>No questions found.</p>
-          )}
+          <button onClick={handleNextQuestion}>
+            {currentQuestionIndex === interview.questions.length - 1 ? "Submit & Get Feedback" : "Next"}
+          </button>
         </>
       ) : (
-        <p>Loading interview details...</p>
+        <>
+          <h2>Overall Feedback & Rating</h2>
+          {Object.entries(feedback).map(([index, fb]) => (
+            <div key={index}>
+              <h4>Question {parseInt(index) + 1}:</h4>
+              <p>{fb}</p>
+            </div>
+          ))}
+          <h3>Final Rating: {overallRating}/10</h3>
+          <h3>Total Time Taken: {Math.floor(totalTimeTaken / 60)} minutes {totalTimeTaken % 60} seconds</h3>
+        </>
       )}
     </div>
   );

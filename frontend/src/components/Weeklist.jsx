@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import Mcanavbar from './Mcaanavbar';
 
 
 const Aweekslist = () => {
@@ -27,14 +28,14 @@ const Aweekslist = () => {
 
   return (
     <div>
-
+<Mcanavbar/>
    <br></br>
     <div className="main-page">
       <h2 className="title">Available Weeks</h2>
       <div className="card-container">
         {weeks.map((week) => (
           <div key={week} className="card">
-            <Link to={`/btechsubmissions/${week}`} className="card-link">
+            <Link to={`/mcasubmissions/${week}`} className="card-link">
               <h3 className="card-title">Week {week}</h3>
             </Link>
           

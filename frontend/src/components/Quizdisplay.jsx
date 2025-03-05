@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import Usernavbar1 from './Usernavbar1';
 
 const QuizComponent = () => {
   const { company, week } = useParams();
@@ -117,6 +118,9 @@ const QuizComponent = () => {
   // Display feedback if the quiz is submitted or if the user has already submitted before
   if (submitted || alreadySubmitted) {
     return (
+      <div>
+        <Usernavbar1/>
+ 
       <div className="quiz-container">
         {/* Inline styles for feedback display */}
         <style>{`
@@ -195,11 +199,15 @@ const QuizComponent = () => {
           </ul>
         </div>
       </div>
+      </div>
     );
   }
 
   // Render quiz interface if not submitted
   return (
+    <div>
+      <Usernavbar1/>
+ 
     <div className="quiz-container">
       {/* Inline Styles matching your original design */}
       <style>{`
@@ -279,6 +287,8 @@ const QuizComponent = () => {
         {currentQuestionIndex + 1 < questions.length ? 'Next' : 'Submit'}
       </button>
     </div>
+    </div>
+   
   );
 };
 
