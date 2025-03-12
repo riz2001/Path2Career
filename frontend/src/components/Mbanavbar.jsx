@@ -22,7 +22,7 @@ const Mbanavbar = () => {
       <nav className="navbar bg-dark border-bottom border-body" data-bs-theme="dark">
         <div className="container-fluid">
           <div className="d-flex justify-content-end align-items-center">
-            <a className="navbar-brand text-light" href="#"><b>JOB CRACKER</b></a>
+            <a className="navbar-brand text-light" href="#"><b>PATH2CAREER</b></a>
 
             {/* USER MANAGEMENT Dropdown */}
             <div className="dropdown d-flex align-items-center mx-3">
@@ -41,9 +41,9 @@ const Mbanavbar = () => {
                 ON CAMPUS
               </a>
               <ul className="dropdown-menu">
-                <li><a className="dropdown-item" href="/AddJob">Add Job</a></li>
+       
                 <li><a className="dropdown-item" href="/mbajoblist">View Registrations</a></li>
-                <li><a className="dropdown-item" href="/deletejobs">Delete</a></li>
+         
               </ul>
             </div>
 
@@ -57,8 +57,8 @@ const Mbanavbar = () => {
                 <li><a className="dropdown-item" href="/offdelete">Delete Off-Campus</a></li>
               </ul>
             </div>
-
-            {/* INTERVIEW Dropdown */}
+{/* 
+            INTERVIEW Dropdown
             <div className="dropdown d-flex align-items-center mx-3">
               <a className="navbar-brand text-light dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                 INTERVIEW
@@ -69,7 +69,7 @@ const Mbanavbar = () => {
                 <li><a className="dropdown-item" href="/monthpage">Review</a></li>
                 <li><a className="dropdown-item" href="/deletemonth">Delete</a></li>
               </ul>
-            </div>
+            </div> */}
 
             {/* APTITUDE TEST Dropdown */}
             <div className="dropdown d-flex align-items-center mx-3">
@@ -77,11 +77,10 @@ const Mbanavbar = () => {
                 APTITUDE TEST
               </a>
               <ul className="dropdown-menu">
-                <li><a className="dropdown-item" href="/addquestions">Add Aptitude Questions</a></li>
-                <li><a className="dropdown-item" href="/updatequestions">Update</a></li>
+              
                 <li><a className="dropdown-item" href="/mbaweeklist">Aptitude Attendance</a></li>
-                <li><a className="dropdown-item" href="/aanswer">Add Solutions</a></li>
-                <li><a className="dropdown-item" href="/scoretable">Result</a></li>
+    
+                <li><a className="dropdown-item" href="/mbascoretable">Result</a></li>
                 <li><a className="dropdown-item" href="/deletequiz">Deletion</a></li>
               </ul>
             </div>
@@ -92,10 +91,8 @@ const Mbanavbar = () => {
                 CODING TEST
               </a>
               <ul className="dropdown-menu">
-                <li><a className="dropdown-item" href="/Codingq">Add Coding Questions</a></li>
-                <li><a className="dropdown-item" href="/Codingupdate">Updation</a></li>
                 <li><a className="dropdown-item" href="/mbasubmissionweeks">Coding Attendance</a></li>
-                <li><a className="dropdown-item" href="/pasttestcases">Add Solutions</a></li>
+            
                 <li><a className="dropdown-item" href="/Fourweek">Result</a></li>
                 <li><a className="dropdown-item" href="/deletecode">Deletion</a></li>
               </ul>

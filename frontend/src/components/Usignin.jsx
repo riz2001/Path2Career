@@ -152,7 +152,7 @@ const Usignin = () => {
       <FormContainer>
         <FormWrapper>
           {/* Job Cracker Heading */}
-          <Heading>JOB CRACKER</Heading>
+          <Heading>PATH2CAREER</Heading>
 
           {/* Logo Image */}
           <Image src="https://tse3.mm.bing.net/th?id=OIP.Z9MPb-mr_Soaz3u-MgNjPQHaHa&pid=Api&P=0&h=220" alt="Job Cracker Logo" />

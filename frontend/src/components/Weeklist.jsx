@@ -35,7 +35,7 @@ const Aweekslist = () => {
       <div className="card-container">
         {weeks.map((week) => (
           <div key={week} className="card">
-            <Link to={`/mcasubmissions/${week}`} className="card-link">
+            <Link to={`/mcasubmissionss/${week}`} className="card-link">
               <h3 className="card-title">Week {week}</h3>
             </Link>
           

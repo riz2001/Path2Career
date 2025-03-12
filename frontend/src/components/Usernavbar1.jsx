@@ -79,7 +79,16 @@ const Usernavbar1 = () => {
               <li><a className="dropdown-item" href="/userinterviews" style={styles.dropdownItem}>HISTORY</a></li>
             </ul>
           </div>
-
+ {/* CODING DROPDOWN */}
+ <div className="dropdown">
+            <a className="navbar-brand dropdown-toggle text-light" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false" style={styles.navItem}>
+             PLACEMENT ANALYSIS
+            </a>
+            <ul className="dropdown-menu" aria-labelledby="dropdownMenuLink">
+              <li><a className="dropdown-item" href="/prediction" style={styles.dropdownItem}>ANALYSIS</a></li>
+           
+            </ul>
+          </div>
 
           {/* CODING DROPDOWN */}
           <div className="dropdown">

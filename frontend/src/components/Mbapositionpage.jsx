@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom"; // React Router for navigation
+import Mbanavbar from "./Mbanavbar";
 
 const MbajobPositionsPage = () => {
   const [jobPositions, setJobPositions] = useState([]);
@@ -18,6 +19,7 @@ const MbajobPositionsPage = () => {
 
   return (
     <div>
+      <Mbanavbar/>
       <h2>Job Positions</h2>
       <ul>
         {jobPositions.map((position, index) => (

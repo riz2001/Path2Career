@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import Mcanavbar from "./Mcaanavbar";
 
 const Interviewsubmission = () => {
   const { jobPosition } = useParams();
@@ -60,7 +61,10 @@ const Interviewsubmission = () => {
   });
 
   return (
+    <div>
+    <Mcanavbar/>
     <div className="submissions-container">
+
       <h2 className="title">Job Submissions for {jobPosition}</h2>
 
       {/* Filters */}
@@ -224,6 +228,7 @@ const Interviewsubmission = () => {
           font-weight: bold;
         }
       `}</style>
+    </div>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Btechnavbar from './Btechnavbar';
 
 const Btechapprove = () => {
     const [unapprovedUsers, setUnapprovedUsers] = useState([]);
@@ -78,6 +79,8 @@ const Btechapprove = () => {
         .sort((a, b) => a.rollno.localeCompare(b.rollno));
 
     return (
+        <div>
+        <Btechnavbar/>
         <div style={styles.container}>
             <br />
             <h2 style={styles.heading}>Approve B.Tech Users</h2>
@@ -170,6 +173,7 @@ const Btechapprove = () => {
             ) : (
                 <p style={styles.noUsersMessage}>No approved B.Tech users available.</p>
             )}
+        </div>
         </div>
     );
 };

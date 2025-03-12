@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import styled from 'styled-components';
 import { useNavigate } from 'react-router-dom';
+import Adminnavbar from './Adminnavbar';
 
 
 // Styled Components
@@ -93,7 +94,7 @@ const AddJob = () => {
 
   return (
     <div>
-
+<Adminnavbar/>
       <JobContainer>
         <FormWrapper>
           <Title>Add Job</Title>

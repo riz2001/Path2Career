@@ -70,8 +70,8 @@ const AdminLogin = () => {
       navigate('/mbaapprove');
     } else if (input.email === 'btech@gmail.com' && input.password === '12345678') {
       navigate('/btechapprove');
-    } else if (input.email === 'user@gmail.com' && input.password === '12345678') {
-      navigate('/userdashboard');
+    } else if (input.email === 'admin@gmail.com' && input.password === '12345678') {
+      navigate('/updateaptitude');
     } else {
       alert('Invalid email or password');
     }

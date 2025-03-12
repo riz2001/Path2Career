@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import Mbanavbar from "./Mbanavbar";
 
 const Mbainterviewsubmission = () => {
   const { jobPosition } = useParams();
@@ -60,6 +61,7 @@ const Mbainterviewsubmission = () => {
   });
 
   return (
+    <div><Mbanavbar/>
     <div className="submissions-container">
       <h2 className="title">Job Submissions for {jobPosition}</h2>
 
@@ -224,6 +226,7 @@ const Mbainterviewsubmission = () => {
           font-weight: bold;
         }
       `}</style>
+    </div>
     </div>
   );
 };

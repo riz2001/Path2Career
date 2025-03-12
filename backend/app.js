@@ -9,10 +9,13 @@ const userModel = require("./models/users.js");
 const Question = require("./models/question");
 const Submission = require("./models/quizsubmission");
 const Cquestions= require("./models/Cquestion");
+const userAnswer = require('./models/Answers');
 const CompilerSubmission = require('./models/CompilerSubmission');
+const PassedTestCase = require('./models/PassedTestcase');
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const jobModel = require("./models/job");
+const bodyParser = require('body-parser');
 const fs = require('fs');
 const { spawn } = require('child_process');
 const InterviewSubmission = require("./models/interviewsubmission"); // ✅ Correct path
@@ -20,10 +23,11 @@ const InterviewSubmission = require("./models/interviewsubmission"); // ✅ Corr
 // Initialize Express App
 const app = express();
 app.use(express.json());
+app.use(bodyParser.json());
 app.use(cors()); // Enable CORS for all origins
 
 // MongoDB Connection
-const mongoURI = "mongodb+srv://rizwan2001:rizwan2001@cluster0.6ucejfl.mongodb.net/mock?retryWrites=true&w=majority&appName=Cluster0";
+const mongoURI = "mongodb+srv://rizwan2001:rizwan2001@cluster0.6ucejfl.mongodb.net/path2career?retryWrites=true&w=majority&appName=Cluster0";
 
 mongoose.connect(mongoURI, {
   useNewUrlParser: true,
@@ -37,12 +41,66 @@ mongoose.connect(mongoURI, {
 // Set your Gemini API key directly in the code
 const GEMINI_API_KEY = "AIzaSyB1cE9da4QfoAUyRZat367HLOGTqYtZWa0"; // Replace with your actual API key
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+app.get("/api/combined-score/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
 
+    // 1. Quiz Submissions: Assume each quiz submission has a numeric 'score'
+    const quizSubs = await Submission.find({ userId });
+    const quizScore =
+      quizSubs.length > 0
+        ? quizSubs.reduce((sum, sub) => sum + sub.score, 0) / quizSubs.length
+        : 0;
+
+    // 2. Interview Submissions: Each interview submission has an 'overallRating'
+    const interviewSubs = await InterviewSubmission.find({ userId });
+    const interviewScore =
+      interviewSubs.length > 0
+        ? interviewSubs.reduce((sum, sub) => sum + (sub.overallRating || 0), 0) / interviewSubs.length
+        : 0;
+
+    // 3. Compiler Submissions: Calculate a score per submission as a percentage
+    const compilerSubs = await CompilerSubmission.find({ userId });
+    let compilerScore = 0;
+    if (compilerSubs.length > 0) {
+      const scores = compilerSubs.map(sub => {
+        // Avoid division by zero
+        if (sub.totalTestCases > 0) {
+          return (sub.passedCount / sub.totalTestCases) * 100;
+        } else {
+          return 0;
+        }
+      });
+      compilerScore = scores.reduce((sum, val) => sum + val, 0) / scores.length;
+    }
+
+    // Calculate combined average (simple average of the three scores)
+    const combinedAverage = (quizScore + interviewScore + compilerScore) / 3;
+
+    res.status(200).json({
+      quizScore,
+      interviewScore,
+      compilerScore,
+      combinedAverage
+    });
+  } catch (error) {
+    console.error("Error fetching combined score:", error);
+    res.status(500).json({ error: "Failed to fetch combined score" });
+  }
+});
 // **📌 Route to Generate AI Content**
 app.post("/api/create-interview", async (req, res) => {
   try {
-    const { jobPosition, jobDesc, jobExperience } = req.body;
-    const interview = new Interview({ jobPosition, jobDesc, jobExperience, questions: [] });
+    // Destructure the new fields from request body
+    const { jobPosition, jobDesc, jobExperience, dueDate, week } = req.body;
+    const interview = new Interview({
+      jobPosition,
+      jobDesc,
+      jobExperience,
+      dueDate,  // Save due date
+      week,     // Save week
+      questions: [] // Initially no questions
+    });
     await interview.save();
     res.status(201).json(interview);
   } catch (error) {
@@ -51,15 +109,48 @@ app.post("/api/create-interview", async (req, res) => {
 });
 
 // **📌 Get All Interviews**
-app.get("/api/interviews", async (req, res) => {
+// Returns a sorted array of distinct week numbers (e.g., [1, 2, 3, ...])
+// This endpoint returns distinct weeks along with a representative interview id for that week.
+app.get("/api/interviews/weeks", async (req, res) => {
   try {
-    const interviews = await Interview.find();
-    res.status(200).json(interviews);
+    const weeks = await Interview.aggregate([
+      {
+        $group: {
+          _id: "$week",
+          interviewId: { $first: "$_id" },
+          jobPosition: { $first: "$jobPosition" }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+    // Map the result into an array of objects with keys 'week' and 'interviewId'
+    const result = weeks.map(w => ({
+      week: w._id,
+      interviewId: w.interviewId,
+      jobPosition: w.jobPosition
+    }));
+    res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ error: "Failed to fetch interviews" });
+    console.error("Error fetching weeks:", error);
+    res.status(500).json({ error: "Failed to fetch weeks" });
   }
 });
 
+// Fetch user profile using userId from URL
+app.get('/profile/:userId', async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ status: 'User not found' });
+    }
+
+    res.json({ status: 'success', user });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
 // **📌 Generate AI-based Questions for an Interview**
 app.post("/api/generate-questions/:interviewId", async (req, res) => {
   const { interviewId } = req.params;
@@ -224,12 +315,9 @@ app.get("/api/check-submission/:interviewId/:userId", async (req, res) => {
   }
 });
 
-// API to save submitted interview data
 app.post("/api/submit-interview", async (req, res) => {
   try {
-    const { interviewId, userId, jobPosition, experienceRequired, answers, overallRating, feedback, emotionDetected } = req.body;
-
-    const newSubmission = new InterviewSubmission({
+    const {
       interviewId,
       userId,
       jobPosition,
@@ -238,6 +326,30 @@ app.post("/api/submit-interview", async (req, res) => {
       overallRating,
       feedback,
       emotionDetected,
+      combinedAverage,
+      totalTimeTaken,
+    } = req.body;
+
+    // Fetch the Interview to get its dueDate (and validate interview exists)
+    const interview = await Interview.findById(interviewId);
+    if (!interview) {
+      return res.status(404).json({ error: "Interview not found" });
+    }
+    // Use the dueDate from the interview document
+    const dueDate = interview.dueDate;
+
+    const newSubmission = new InterviewSubmission({
+      interviewId,
+      userId,
+      jobPosition,
+      experienceRequired,
+      answers,
+      dueDate, // use the interview's dueDate
+      overallRating,
+      feedback,
+      emotionDetected,
+      combinedAverage,
+      totalTimeTaken,
     });
 
     await newSubmission.save();
@@ -247,6 +359,8 @@ app.post("/api/submit-interview", async (req, res) => {
     res.status(500).json({ error: "Failed to submit interview" });
   }
 });
+
+
 
 app.get("/api/mba-jobsubmissions-and-non-submissions/:jobPosition", async (req, res) => {
   const jobPosition = req.params.jobPosition;
@@ -351,6 +465,59 @@ app.get("/api/btech-submissions-and-non-submissions/:jobPosition", async (req, r
   }
 });
 
+
+const multer = require('multer');
+const Jobsubmission = require("./models/Jobsubmissions.js");
+app.use('/uploads', express.static('uploads')); // Serve the uploads folder
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, 'uploads'); // Directory to store uploaded images
+    },
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`); // File naming convention
+    },
+  });
+  
+  const upload = multer({ storage });// Route to handle form submissions
+  app.post('/api/offcampussubmit-form', upload.single('image'), async (req, res) => {
+    const { companyName, salary, applicationLink, location } = req.body;
+    const imagePath = req.file ? req.file.path : null; // Get the uploaded image path
+  
+    // Check if required fields are present
+    if (!companyName || !salary || !imagePath || !applicationLink || !location) {
+      return res.status(400).json({ message: 'Company name, salary, image, application link, and location are required.' });
+    }
+  
+    try {
+      const newSubmission = new Jobsubmission({
+        companyName,
+        salary,
+        image: imagePath, // Save image path
+        applicationLink, // Save application link
+        location, // Save location
+      });
+      
+      await newSubmission.save();
+      res.status(201).json({ message: 'Form submitted successfully!', submission: newSubmission });
+    } catch (error) {
+      console.error('Error saving submission:', error);
+      res.status(500).json({ message: 'Error saving submission', error: error.message });
+    }
+  });
+  
+//offcampus
+
+  // Route to get all submissions
+  app.get('/api/offcampussubmissions', async (req, res) => {
+    try {
+      const submissions = await Jobsubmission.find();
+      console.log(submissions); // Log submissions to ensure they are fetched
+      res.json(submissions);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      res.status(500).json({ message: 'Error fetching submissions', error: error.message });
+    }
+  });
 app.post("/signup", async (req, res) => {
   try {
       // Destructure fields from request body, including batch
@@ -461,6 +628,65 @@ app.delete('/api/mbadeleteStudents', async (req, res) => {
     return res.status(500).json({ message: 'An error occurred while deleting MBA students.' });
   }
 });
+
+
+app.post('/api/btechupdateCourseYear', async (req, res) => {
+  try {
+    // Promote BTech students to the next year
+    await userModel.updateMany(
+      { courseYear: "First Year A Batch", batch: { $nin: ["MCA", "MBA"] } },
+      { $set: { courseYear: "Second Year A Batch" } }
+    );
+    
+    await userModel.updateMany(
+      { courseYear: "First Year B Batch", batch: { $nin: ["MCA", "MBA"] } },
+      { $set: { courseYear: "Second Year B Batch" } }
+    );
+    
+    await userModel.updateMany(
+      { courseYear: "Second Year A Batch", batch: { $nin: ["MCA", "MBA"] } },
+      { $set: { courseYear: "Third Year A Batch" } }
+    );
+    
+    await userModel.updateMany(
+      { courseYear: "Second Year B Batch", batch: { $nin: ["MCA", "MBA"] } },
+      { $set: { courseYear: "Third Year B Batch" } }
+    );
+    
+    await userModel.updateMany(
+      { courseYear: "Third Year A Batch", batch: { $nin: ["MCA", "MBA"] } },
+      { $set: { courseYear: "Fourth Year A Batch" } }
+    );
+    
+    await userModel.updateMany(
+      { courseYear: "Third Year B Batch", batch: { $nin: ["MCA", "MBA"] } },
+      { $set: { courseYear: "Fourth Year B Batch" } }
+    );
+    
+
+    return res.status(200).json({ message: 'BTech course years updated successfully!' });
+  } catch (error) {
+    console.error('Error updating BTech course years:', error);
+    return res.status(500).json({ message: 'An error occurred while updating BTech course years.' });
+  }
+});
+
+app.delete('/api/btechdeleteStudents', async (req, res) => {
+  try {
+    // Delete only Fourth Year BTech students
+    await userModel.deleteMany({
+      courseYear: { $in: ["Fourth Year A Batch", "Fourth Year B Batch"] },
+      batch: { $nin: ["MCA", "MBA"] }
+    });
+    
+
+    return res.status(200).json({ message: 'BTech Fourth Year students have been deleted successfully!' });
+  } catch (error) {
+    console.error('Error deleting BTech students:', error);
+    return res.status(500).json({ message: 'An error occurred while deleting BTech students.' });
+  }
+});
+
 // Route to approve a user by ID
 app.put("/approve/:id", async (req, res) => {
   try {
@@ -647,6 +873,64 @@ app.get("/jobs/:jobId/mcaregistrations", async (req, res) => {
       res.json({ status: "error", message: error.message });
   }
 });
+app.get('/api/job-submissionss', async (req, res) => {
+  try {
+    const jobSubmissions = await Jobsubmission.find({});
+    res.status(200).json(jobSubmissions);
+  } catch (error) {
+    console.error('Error fetching job submissions:', error);
+    res.status(500).json({ message: 'Error fetching job submissions' });
+  }
+});
+
+// Route to delete a job submission by ID
+app.delete('/api/job-submissionss/:id', async (req, res) => {
+  try {
+    const deleteResult = await Jobsubmission.findByIdAndDelete(req.params.id);
+    if (deleteResult) {
+      res.status(200).json({ message: 'Job submission deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Job submission not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting job submission:', error);
+    res.status(500).json({ message: 'Error deleting job submission' });
+  }
+});
+
+app.get("/api/jobsss", async (req, res) => {
+    try {
+        const jobs = await jobModel.find();
+        res.status(200).json(jobs);
+    } catch (error) {
+        res.status(500).json({ message: "Error fetching jobs", error });
+    }
+});
+
+// Route to delete a job by ID
+app.delete("/api/jobs/:id", async (req, res) => {
+    const jobId = req.params.id;
+    try {
+        await jobModel.findByIdAndDelete(jobId);
+        res.status(200).json({ message: "Job deleted successfully" });
+    } catch (error) {
+        res.status(500).json({ message: "Error deleting job", error });
+    }
+});
+
+
+app.delete("/api/registrations/:jobId", async (req, res) => {
+  const { jobId } = req.params;
+  try {
+      const deletedRegistrations = await registrationModel.deleteMany({ job_id: jobId });
+      if (deletedRegistrations.deletedCount === 0) {
+          return res.status(404).json({ message: "No registrations found for this job ID" });
+      }
+      res.status(200).json({ message: "All registrations deleted successfully" });
+  } catch (error) {
+      res.status(500).json({ message: "Error deleting registrations", error });
+  }
+});
 
 app.get("/jobs/:jobId/mbaregistrations", async (req, res) => {
   const { jobId } = req.params;
@@ -735,6 +1019,23 @@ app.get('/api/companies', async (req, res) => {
   }
 });
 
+
+app.get('/api/filter-questions/:week/:company', async (req, res) => {
+  const week = parseInt(req.params.week, 10); // Parse week as an integer
+  const company = req.params.company; // Get the company from request parameters
+
+  try {
+    // Find all questions for the given week and company
+    const questions = await Question.find({ week: week, company: company });
+    if (!questions || questions.length === 0) {
+      return res.status(404).json({ message: 'No questions found for this week and company' });
+    }
+    res.json(questions);
+  } catch (error) {
+    res.status(500).json({ error: 'Error fetching questions for this week and company' });
+  }
+});
+
 app.get('/api/weekssss', async (req, res) => {
   const { company } = req.query;
 
@@ -753,7 +1054,44 @@ app.get('/api/weekssss', async (req, res) => {
   }
 });
 
-  
+app.put('/api/update-questionss', async (req, res) => {
+  const { questions } = req.body;
+
+  try {
+    // Loop through each question and update it in the database
+    for (let updatedQuestion of questions) {
+      const { _id, question, options, answer, explanation } = updatedQuestion;
+
+      // Find the question by ID and update its fields
+      await Question.findByIdAndUpdate(
+        _id,
+        {
+          question,
+          options,
+          answer,
+          explanation,
+        },
+        { new: true } // Return the updated document
+      );
+    }
+
+    // If everything is successful, send a success response
+    res.status(200).json({ message: 'Questions updated successfully!' });
+  } catch (error) {
+    console.error('Error updating questions:', error);
+    res.status(500).json({ message: 'Error updating questions.', error });
+  }
+});
+
+app.get('/api/available-weekss', async (req, res) => {
+  try {
+    const weeks = await Question.distinct('week'); // Get distinct weeks
+    res.json(weeks);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch weeks' });
+  }
+});
+
   
   // Route to handle quiz submission and evaluate answers
   app.post('/api/submit-quiz', async (req, res) => {
@@ -846,6 +1184,133 @@ app.get('/api/weekssss', async (req, res) => {
 });
 
   
+// POST route to submit admin answers
+app.post('/api/submit-answerss', async (req, res) => {
+  const userAnswers = req.body; // Expecting an array of user answers
+
+  try {
+    // Ensure the request body is valid
+    if (!Array.isArray(userAnswers) || userAnswers.length === 0) {
+      throw new Error('Invalid input: Expected an array of user answers.');
+    }
+
+    // Prepare each answer with questionId and other details
+    const answersToInsert = userAnswers.map(answer => ({
+      week: answer.week,
+      questionId: answer.questionId, // Ensure this matches your updated schema field
+      answer: answer.answer,
+      explanation: answer.explanation, // Optional field if needed
+      submittedAt: new Date(),
+      company:answer.company,
+    }));
+
+    // Insert all user answers into the database
+    await userAnswer.insertMany(answersToInsert);
+
+    res.status(201).json({ message: 'Answers submitted successfully!' });
+  } catch (error) {
+    // Enhanced error logging
+    console.error('Error submitting answers:', error.message, { stack: error.stack, body: req.body });
+    res.status(500).json({ message: 'Error submitting answers.', error: error.message });
+  }
+});
+
+app.get('/api/user-answers/:week/:company?', async (req, res) => {
+  const { week, company } = req.params;
+
+  try {
+    // Build query object based on parameters
+    let query = { week };
+    if (company) {
+      query.company = company; // Assuming your userAnswer schema has a 'company' field
+    }
+
+    // Find answers for the given week and populate the question details
+    const answers = await userAnswer.find(query)
+      .populate({
+        path: 'questionId', // Ensure the questionId path matches your schema
+        select: 'question options answer explanation' // Specify fields to populate
+      })
+      .exec();
+
+    res.status(200).json(answers);
+  } catch (error) {
+    console.error('Error fetching answers:', error);
+    res.status(500).json({ message: 'Error fetching answers.' });
+  }
+});
+
+
+app.get('/api/available-companies', async (req, res) => {
+  try {
+    const companies = await userAnswer.distinct('company'); // Assuming your userAnswer schema has a 'company' field
+    res.status(200).json(companies);
+  } catch (error) {
+    console.error('Error fetching companies:', error);
+    res.status(500).json({ message: 'Error fetching companies.' });
+  }
+});
+
+
+// Route to get scores for selected week range
+app.get('/api/scores/:startWeek/:endWeek', async (req, res) => {
+  const { startWeek, endWeek } = req.params;
+
+  try {
+    // Fetch submissions for the selected week range, excluding entries with null or non-existing userId
+    const submissions = await Submission.find({
+      week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+      userId: { $ne: null } // Exclude submissions with null userId
+    }).populate('userId', 'name admissionno rollno courseYear email score');
+
+    // Aggregate scores per user, ensuring the userId is valid
+    const userScores = {};
+    submissions.forEach((submission) => {
+      // Check if the user data is present and valid
+      if (submission.userId && submission.userId._id) {
+        if (!userScores[submission.userId._id]) {
+          userScores[submission.userId._id] = {
+            user: submission.userId,
+            score: 0,
+          };
+        }
+        userScores[submission.userId._id].score += submission.score;
+      }
+    });
+
+    // Convert to array
+    const scoresArray = Object.values(userScores);
+    res.json(scoresArray);
+  } catch (error) {
+    console.error('Error fetching scores:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+app.get('/api/week-ranges', async (req, res) => {
+  try {
+    const maxWeek = await Submission.find()
+      .sort({ week: -1 })
+      .limit(1)
+      .select('week');
+
+    const ranges = [];
+    if (maxWeek.length > 0) {
+      const currentMaxWeek = maxWeek[0].week;
+      for (let i = 1; i <= currentMaxWeek; i += 4) {
+        if (i + 3 <= currentMaxWeek) {
+          ranges.push(`Week ${i} to Week ${i + 3}`);
+          console.log(maxWeek);
+        }
+      }
+    }
+    res.json(ranges);
+  } catch (error) {
+    console.error('Error fetching week ranges:', error);
+    res.status(500).send('Server Error');
+  }
+});
    // Fetch user submissions
    app.get("/api/submissionsss", async (req, res) => {
     try {
@@ -871,6 +1336,7 @@ app.get('/api/weekssss', async (req, res) => {
   });
   
 app.get('/api/mcasubmissions-and-non-submissions/:week', async (req, res) => {
+  
   const weekNumber = req.params.week;
   const { courseYear, company } = req.query; // Capture courseYear and company from the query
 
@@ -977,6 +1443,65 @@ app.get('/api/mbasubmissions-and-non-submissions/:week', async (req, res) => {
   } catch (error) {
     console.error('Error fetching submissions and non-submissions:', error);
     res.status(500).json({ message: 'Error fetching submissions and non-submissions', error: error.message });
+  }
+});
+app.get('/api/unique-quizzes', async (req, res) => {
+  try {
+    const uniqueQuizzes = await Question.aggregate([
+      {
+        $group: {
+          _id: { company: "$company", week: "$week" },
+        }
+      },
+      {
+        $project: {
+          company: "$_id.company",
+          week: "$_id.week",
+          _id: 0
+        }
+      }
+    ]);
+    res.json(uniqueQuizzes);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error fetching unique quizzes" });
+  }
+});
+
+
+app.delete('/api/delete/company/:company/week/:week', async (req, res) => {
+  const { company, week } = req.params;
+
+  try {
+    // Delete quizzes for the specified company and week
+    const quizDeleteResult = await Question.deleteMany({ company, week });
+
+    // Delete user answers associated with the specified company and week
+    const userAnswerDeleteResult = await userAnswer.deleteMany({ company, week });
+
+    if (quizDeleteResult.deletedCount > 0 || userAnswerDeleteResult.deletedCount > 0) {
+      return res.status(200).json({
+        message: `Deleted all quizzes and user answers for ${company} in week ${week}`,
+      });
+    } else {
+      return res.status(404).json({
+        message: 'No matching quizzes or user answers found to delete',
+      });
+    }
+  } catch (error) {
+    console.error('Error deleting quiz and user answers:', error);
+    return res.status(500).json({ message: 'Error deleting quiz and user answers' });
+  }
+});
+
+app.delete('/api/submissions/company/:company/week/:week', async (req, res) => {
+  const { company, week } = req.params;
+  try {
+    const result = await Submission.deleteMany({ company, week: parseInt(week) });
+    res.json({ message: `Deleted submissions for ${company} in week ${week}`, deletedCount: result.deletedCount });
+  } catch (error) {
+    console.error('Error deleting submissions:', error);
+    res.status(500).json({ message: 'Error deleting submissions' });
   }
 });
 
@@ -1405,8 +1930,334 @@ app.post('/api/compiler/run', (req, res) => {
       res.status(500).json({ error: 'Internal Server Error' });
     }
   });
+      // Fetch submissions for a specific week with user details
+      app.get('/api/compilerSubmissions/week/:week', async (req, res) => {
+        const { week } = req.params;
+        const { courseYear, searchTerm, company } = req.query; // Extract company from query params
+    
+        const weekNumber = parseInt(week);
+        if (isNaN(weekNumber) || weekNumber <= 0) {
+            return res.status(400).json({ error: 'Invalid week number provided' });
+        }
+    
+        try {
+            // Build the user query based on course year, search term, and company
+            let userQuery = {};
+    
+            if (courseYear) {
+                userQuery.courseYear = courseYear; // Filter users by course year if provided
+            }
+    
+            if (searchTerm) {
+                userQuery.$or = [
+                    { name: new RegExp(searchTerm, 'i') },
+                    { admissionno: new RegExp(searchTerm, 'i') },
+                    { email: new RegExp(searchTerm, 'i') },
+                ];
+            }
+    
+            // Fetch all users matching the query (apply the course year and search term filter)
+            const users = await userModel.find(userQuery).select('name admissionno email rollno courseYear').exec();
+    
+            // Fetch submissions for the given week and populate user details
+            const submissions = await CompilerSubmission.find({ week: weekNumber })
+                .populate('userId', 'name admissionno email rollno courseYear company'); // Populate company too
+    
+            // List of user IDs who submitted
+            const submittedUserIds = submissions.map(sub => sub.userId ? sub.userId._id.toString() : null).filter(id => id !== null);
+    
+            // Users who submitted with courseYear, searchTerm, and company filters
+            const filteredSubmissions = submissions.filter(sub => {
+                const userId = sub.userId;
+    
+                if (!userId) return false; // Skip submissions without userId
+    
+                // Apply courseYear filter if provided
+                const courseYearMatches = !courseYear || userId.courseYear === courseYear;
+    
+                // Apply search term filter
+                const searchMatches = !searchTerm || new RegExp(searchTerm, 'i').test(userId.name) ||
+                    new RegExp(searchTerm, 'i').test(userId.admissionno) ||
+                    new RegExp(searchTerm, 'i').test(userId.email);
+    
+                // Apply company filter if provided
+                const companyMatches = !company || userId.company === company; // Check for company match
+    
+                return courseYearMatches && searchMatches && companyMatches;
+            });
+    
+            // Users who haven't submitted, also filtered by searchTerm, courseYear, and company
+            const nonSubmittedUsers = users.filter(user => {
+                const hasNotSubmitted = !submittedUserIds.includes(user._id.toString());
+                const searchMatches = !searchTerm || new RegExp(searchTerm, 'i').test(user.name) ||
+                    new RegExp(searchTerm, 'i').test(user.admissionno) ||
+                    new RegExp(searchTerm, 'i').test(user.email);
+                const companyMatches = !company || user.company === company; // Check for company match
+    
+                return hasNotSubmitted && searchMatches && companyMatches;
+            });
+    
+            // Prepare response data for submissions, including dueDate
+            const submissionData = filteredSubmissions.map(submission => {
+                const userId = submission.userId; // Ensure userId is defined
+                return {
+                    _id: submission._id,
+                    userId: userId ? userId._id : null,
+                    name: userId ? userId.name : 'N/A',
+                    admissionno: userId ? userId.admissionno : 'N/A',
+                    rollno: userId ? userId.rollno : 'N/A',
+                    courseYear: userId ? userId.courseYear : 'N/A',
+                    email: userId ? userId.email : 'N/A',
+                    company: userId ? userId.company : 'N/A', // Include company in the response
+                    passedCount: submission.passedCount,
+                    totalTestCases: submission.totalTestCases,
+                    submissionTime: submission.submissionDate,
+                    dueDate: submission.dueDate,
+                    company:submission.company
+                };
+            });
+    
+            res.json({
+                submissions: submissionData,
+                nonSubmittedUsers,
+            });
+        } catch (err) {
+            console.error('Error fetching submissions:', err);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
+    });
+    app.get('/api/cquestionss', async (req, res) => {
+      const week = parseInt(req.query.week);
+      if (isNaN(week)) {
+          return res.status(400).json({ message: 'Invalid week number' });
+      }
+    
+      try {
+          const questions = await Cquestions.find({ week });
+          res.json(questions);
+      } catch (error) {
+          res.status(500).json({ message: 'Error retrieving questions', error });
+      }
+    });
+    
+    
+app.get('/api/compiler/week/:week', async (req, res) => {
+  const { week } = req.params;
+
+  try {
+      // Fetch submissions for the selected week where passedCount is equal to totalTestCases
+      const submissions = await CompilerSubmission.find({
+          week,
+          $expr: { $eq: ['$passedCount', '$totalTestCases'] }, // Ensure all test cases passed
+      })
+      .populate('questionId', 'title')
+      .select('company questionId passedCount totalTestCases code')  // Populate with question title; adjust the fields as necessary
+      .exec();
+
+      if (submissions.length === 0) {
+          return res.status(404).json({ message: 'No passed submissions found for the selected week.' });
+      }
+
+      res.json(submissions);
+  } catch (error) {
+      console.error('Error fetching submissions:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/compiler/weeks', async (req, res) => {
+  try {
+      const weeks = await CompilerSubmission.distinct('week'); // Fetch distinct weeks from submissions
+      res.json(weeks);
+  } catch (error) {
+      console.error('Error fetching weeks:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+
+// Fetch questions for a specific week
+app.get('/api/questions/week/:week', async (req, res) => {
+  const { week } = req.params;
+
+  try {
+      const questions = await Cquestions.find({ week });
+      if (questions.length === 0) {
+          return res.status(404).json({ message: 'No questions found for this week.' });
+      }
+      res.status(200).json(questions);
+  } catch (error) {
+      console.error('Error fetching questions:', error);
+      res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Fetch passed test cases for a specific week with populated questionId
+app.get('/api/passedTestCases/week/:week', async (req, res) => {
+  const { week } = req.params;
+  try {
+      const passedTestCases = await PassedTestCase.find({ week })
+          .populate('questionId', 'title')
+          .exec();
+
+      if (!passedTestCases || passedTestCases.length === 0) {
+          return res.status(404).json({ message: `No passed test cases found for week ${week}.` });
+      }
+
+      res.json(passedTestCases);
+  } catch (error) {
+      console.error('Error fetching passed test cases:', error);
+      res.status(500).json({ message: 'Error fetching passed test cases', error });
+  }
+});
+
+
+app.post('/api/compiler/save', async (req, res) => {
+  const { week, questionId, code, passedCount, totalTestCases,questionTitle,company } = req.body;
+
+  try {
+      const newPassedTestCase = new PassedTestCase({
+          week,
+          questionTitle,
+          questionId,
+          code,
+          passedCount,
+          totalTestCases,
+          company
+      });
+
+      await newPassedTestCase.save();
+      res.status(201).json({ message: 'Data saved successfully', newPassedTestCase });
+  } catch (err) {
+      console.error('Error saving passed test case:', err);
+      res.status(500).json({ message: 'Error saving data. Please try again.' });
+  }
+});
+
+
+app.get('/api/quizzes', async (req, res) => {
+  try {
+    const quizzes = await Cquestions.find({}, 'company week'); // Fetch only company and week fields
+    res.status(200).json(quizzes);
+  } catch (error) {
+    console.error('Error fetching quizzes:', error);
+    res.status(500).json({ message: 'Error fetching quizzes' });
+  }
+});
+
+// API to delete quiz and answers for a specific company and week
+app.delete('/api/delete-quiz', async (req, res) => {
+  const { company, week } = req.query;
+
+  try {
+    // Delete the quiz entries in Cquestions collection
+    const quizDeleteResult = await Cquestions.deleteMany({ company, week });
+
+    // If quizzes are deleted, proceed to delete related PassedTestCase entries
+    if (quizDeleteResult.deletedCount > 0) {
+      const passedTestCaseDeleteResult = await PassedTestCase.deleteMany({ company, week });
+
+      res.status(200).json({
+        message: `Successfully deleted quiz for ${company} in week ${week}, along with ${passedTestCaseDeleteResult.deletedCount} related PassedTestCase entries.`,
+      });
+    } else {
+      res.status(404).json({ message: 'No matching quizzes found to delete' });
+    }
+  } catch (error) {
+    console.error('Error deleting quiz or related data:', error);
+    res.status(500).json({ message: 'Error deleting quiz or related data' });
+  }
+});
+
+// API to delete submissions for a specific company and week
+app.delete('/api/delete-submission', async (req, res) => {
+  const { company, week } = req.query;
+
+  try {
+    const deleteResult = await CompilerSubmission.deleteMany({ company, week });
+
+    if (deleteResult.deletedCount > 0) {
+      res.status(200).json({ message: `Deleted all submissions for ${company} in week ${week}` });
+    } else {
+      res.status(404).json({ message: 'No matching submissions found to delete' });
+    }
+  } catch (error) {
+    console.error('Error deleting submissions:', error);
+    res.status(500).json({ message: 'Error deleting submissions' });
+  }
+});
+
+
+
+
+  app.put('/api/cquestionss/:id', async (req, res) => {
+    const questionId = req.params.id;
+    
+    try {
+        const updatedQuestion = await Cquestions.findByIdAndUpdate(questionId, req.body, { new: true });
+        
+        if (!updatedQuestion) {
+            return res.status(404).json({ message: 'Question not found' });
+        }
+        
+        res.json({ message: 'Question updated successfully!', question: updatedQuestion });
+    } catch (error) {
+        res.status(500).json({ message: 'Error updating question', error });
+    }
+  });
   
- 
+  app.get('/api/submissions-and-non-submissions/:week', async (req, res) => {
+    const weekNumber = req.params.week;
+    const { courseYear, company } = req.query; // Capture courseYear and company from the query
+  
+    try {
+      // Filter users based on courseYear if provided
+      const userFilter = courseYear ? { courseYear } : {};
+  
+      // Fetch all users with specified courseYear, or all users if no filter
+      const users = await userModel
+        .find(userFilter)
+        .select('name email admissionno rollno courseYear')
+        .exec();
+  
+      // Filter submissions by both week and company
+      const submissionFilter = { week: weekNumber };
+      if (company) {
+        submissionFilter.company = company;
+      }
+  
+      // Fetch all submissions matching the week and company, if specified, and populate userId fields
+      const submissions = await Submission.find(submissionFilter)
+        .populate({
+          path: 'userId',
+          select: 'email name admissionno rollno courseYear',
+          match: userFilter,
+        })
+        .select('submissionTime score dueDate company') // Include dueDate and other fields
+        .exec();
+  
+      // Filter valid submissions with a populated userId field
+      const validSubmissions = submissions.filter(submission => submission.userId);
+  
+      // Get a list of userIds who have submitted for the specified week and company
+      const submittedUserIds = new Set(validSubmissions.map(sub => sub.userId._id.toString()));
+  
+      // Find users who haven’t submitted for the specified company and week
+      const nonSubmittedUsers = users.filter(user => !submittedUserIds.has(user._id.toString()));
+  
+      // Respond with submissions and non-submitted users
+      res.json({
+        submissions: validSubmissions,
+        nonSubmittedUsers,
+      });
+    } catch (error) {
+      console.error('Error fetching submissions and non-submissions:', error);
+      res.status(500).json({ message: 'Error fetching submissions and non-submissions', error: error.message });
+    }
+  });
+    
+    
+
 
   app.get('/api/mcasubmissions-and-non-submissionscompiler/:week', async (req, res) => {
     const weekNumber = req.params.week;
@@ -1570,7 +2421,143 @@ app.post('/api/compiler/run', (req, res) => {
     }
   });
   
+app.get('/api/scoress/:startWeek/:endWeek', async (req, res) => {
+  const { startWeek, endWeek } = req.params;
+
+  try {
+    // Fetch submissions within the specified week range and join with users
+    const submissions = await CompilerSubmission.aggregate([
+      {
+        $match: {
+          week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users', // Name of the users collection
+          localField: 'userId', // Field from CompilerSubmission
+          foreignField: '_id', // Field from users collection
+          as: 'userDetails', // Output array field
+        },
+      },
+      {
+        $unwind: '$userDetails', // Unwind to flatten the userDetails array
+      },
+      {
+        $group: {
+          _id: "$userId", // Group by user ID
+          totalScore: { $sum: "$passedCount" }, // Sum passedCount for total score
+          userDetails: { $first: "$userDetails" }, // Get user details from the first submission
+        },
+      },
+      {
+        $sort: { totalScore: -1 }, // Sort by total score descending
+      },
+      {
+        $project: {
+          _id: 0,
+          userId: "$_id",
+          name: "$userDetails.name",
+          admissionNo: "$userDetails.admissionno",
+          rollNo: "$userDetails.rollno",
+          courseYear: "$userDetails.courseYear",
+          email: "$userDetails.email",
+          score: "$totalScore",
+        },
+      },
+    ]);
+
+    // Return the result
+    res.json(submissions);
+  } catch (error) {
+    console.error('Error fetching scores:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Export the router to use in your main app
+// Add this endpoint in your router file
+// Add this endpoint in your router file
+app.get('/api/week-rangess', async (req, res) => {
+  try {
+    // Fetch distinct weeks from CompilerSubmission
+    const weeks = await CompilerSubmission.distinct('week'); // Get distinct weeks
+
+    // Sort the weeks to ensure they are in the correct order
+    weeks.sort((a, b) => a - b);
+
+    const weekRanges = [];
+
+    // Use a fixed range approach to avoid gaps in ranges
+    for (let i = 1; i <= Math.max(...weeks); i += 4) {
+      const start = i;
+      const end = i + 3;
+
+      // Add range to weekRanges array
+      weekRanges.push(`Week ${start}-${end}`);
+    }
+
+    res.json(weekRanges); // Send the calculated ranges to the frontend
+  } catch (error) {
+    console.error('Error fetching week ranges:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});  
+
     
+app.get('/api/submissions-and-non-submissionscompiler/:week', async (req, res) => {
+  const weekNumber = req.params.week;
+  const { courseYear, company } = req.query; // Capture courseYear and company from the query
+
+  try {
+      // Filter users based on courseYear and ensure they are MCA students
+      const userFilter = { course: 'MCA' };
+      if (courseYear) {
+          userFilter.courseYear = courseYear;
+      }
+
+      // Fetch all MCA students with specified courseYear, or all MCA students if no filter
+      const users = await userModel
+          .find(userFilter)
+          .select('name email admissionno rollno courseYear')
+          .exec();
+
+      // Filter submissions by both week and company
+      const submissionFilter = { week: weekNumber };
+      if (company) {
+          submissionFilter.company = company;
+      }
+
+      // Fetch all submissions matching the week and company, ensuring only MCA students are included
+      const submissions = await CompilerSubmission.find(submissionFilter)
+          .populate({
+              path: 'userId',
+              select: 'email name admissionno rollno courseYear',
+              match: userFilter, // Ensures only MCA students are included
+          })
+          .select('submissionDate score dueDate company passedCount totalTestCases')
+          .exec();
+
+      // Filter valid submissions with a populated userId field
+      const validSubmissions = submissions.filter(sub => sub.userId);
+
+      // Get a list of userIds who have submitted for the specified week and company
+      const submittedUserIds = new Set(validSubmissions.map(sub => sub.userId._id.toString()));
+
+      // Find MCA students who haven’t submitted for the specified company and week
+      const nonSubmittedUsers = users.filter(user => !submittedUserIds.has(user._id.toString()));
+
+      // Respond with submissions and non-submitted users
+      res.json({
+          submissions: validSubmissions,
+          nonSubmittedUsers,
+      });
+  } catch (error) {
+      console.error('Error fetching submissions and non-submissions:', error);
+      res.status(500).json({ message: 'Error fetching submissions and non-submissions', error: error.message });
+  }
+});
+
 // Start the Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

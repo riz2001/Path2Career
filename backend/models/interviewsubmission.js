@@ -4,12 +4,12 @@ const interviewSubmissionSchema = new mongoose.Schema(
   {
     interviewId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Interview", // ✅ Matches your actual model name
+      ref: "Interview",
       required: true,
     },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "users", // ✅ Matches your actual model name
+      ref: "User",
       required: true,
     },
     jobPosition: {
@@ -17,18 +17,17 @@ const interviewSubmissionSchema = new mongoose.Schema(
       required: true,
     },
     experienceRequired: {
-      type: String,
-      required: true,
+      type: String
     },
     answers: [
       {
-        question: { type: String, required: true }, // ✅ Ensure questions are saved
+        question: { type: String, required: true },
         userAnswer: { type: String, required: true },
       },
     ],
     overallRating: {
       type: Number,
-      default: null, // ✅ Allow null if AI fails to generate rating
+      default: null,
     },
     feedback: [
       {
@@ -37,15 +36,27 @@ const interviewSubmissionSchema = new mongoose.Schema(
       },
     ],
     emotionDetected: {
-      type: String,
-      default: "Not detected",
+      perQuestionAverages: { type: [Number], default: [] },
+      overallAverage: { type: Number, default: 0 },
+    },
+    combinedAverage: {
+      type: Number,
+      default: 0,
+    },
+    dueDate: {
+      type: Date,
+      required: true,
+    },
+    totalTimeTaken: {
+      type: Number,
+      default: 0,
     },
     submissionTime: {
       type: Date,
       default: Date.now,
     },
   },
-  { timestamps: true } // ✅ Adds createdAt & updatedAt fields
+  { timestamps: true }
 );
 
 module.exports = mongoose.model("InterviewSubmission", interviewSubmissionSchema);

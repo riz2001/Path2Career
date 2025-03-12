@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import Adminnavbar from './Adminnavbar';
 
 
 const Codingq = () => {
@@ -63,7 +64,7 @@ const Codingq = () => {
 
     return (
         <div>
-      
+      <Adminnavbar/>
             <div className="coding-question-container" style={styles.container}>
                 <h1 className="form-title" style={styles.title}>ADD QUESTIONS</h1>
                 <form className="question-form" onSubmit={submitQuestion}>

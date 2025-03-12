@@ -182,7 +182,7 @@ const Ureg = () => {
       <GlobalStyle />
       <FormContainer>
         <FormWrapper>
-          <Heading>JOB CRACKER</Heading>
+          <Heading>PATH2CAREER</Heading>
           <Title>Sign Up</Title>
           <form>
             <Input type="text" name="name" placeholder="Name" value={input.name} onChange={inputHandler} required />
@@ -194,8 +194,11 @@ const Ureg = () => {
             {/* Department Selection */}
             <Select name="batch" value={input.batch} onChange={inputHandler} required>
               <option value="">Select Department</option>
-              <option value="Civil Engineering">Civil Engineering - 120 Seats</option>
-              <option value="Computer Science & Engineering">Computer Science & Engineering - 180 Seats</option>
+              <option value="Civil Engineering">Civil Engineering </option>
+              <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+              <option value="Mechanical engineering">Mechanical Engineering</option>
+              <option value="Electrical and Electronics Engineering">Electrical and Electronics Engineering</option>
+              <option value="Electrical and Electronics Engineering">Electrical and Communication Engineering</option>
               <option value="MCA">MCA</option>
               <option value="MBA">MBA</option>
             </Select>

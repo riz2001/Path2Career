@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import Adminnavbar from './Adminnavbar';
 
 
 
@@ -68,7 +69,7 @@ const Addquestions = () => {
 
   return (
     <div>
-    
+    <Adminnavbar/>
       <div className="outer-card">
         <div className="admin-container">
           <h2 className="admin-title">ADD QUESTIONS</h2>
