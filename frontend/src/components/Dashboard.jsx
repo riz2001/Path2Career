@@ -32,7 +32,7 @@ const Dashboard = () => {
     <div>
       <Usernavbar1 />
       <div>
-        <h1><marquee><b>JOB CRACKER</b></marquee></h1>
+        <h1><marquee><b>PATH2CAREER</b></marquee></h1>
         <br />
         <div className="container">
           <div className="row">
@@ -165,7 +165,7 @@ const Dashboard = () => {
           {/* Second row with 2 images */}
           <div className="row justify-content-center">
             <div className="col col-12 col-sm-4">
-              <a href="/room/:roomid" style={{ textDecoration: 'none' }}>
+              <a href="/I" style={{ textDecoration: 'none' }}>
                 <div
                   className="card"
                   style={cardStyle}

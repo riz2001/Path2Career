@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
+import Btechnavbar from "./Btechnavbar";
 
 const Btechinterviewsubmission = () => {
   const { jobPosition } = useParams();
@@ -15,7 +16,7 @@ const Btechinterviewsubmission = () => {
     const fetchData = async () => {
       try {
         const response = await axios.get(
-          `http://localhost:5000/api/btech-submissions-and-non-submissions/${jobPosition}`
+          `http://localhost:5000/api/jobsubmissions-and-non-submissions/${jobPosition}`
         );
         const { submissions, nonSubmittedUsers } = response.data;
         setSubmissions(submissions);
@@ -60,6 +61,9 @@ const Btechinterviewsubmission = () => {
   });
 
   return (
+    <div>
+      <Btechnavbar/>
+   
     <div className="submissions-container">
       <h2 className="title">Job Submissions for {jobPosition}</h2>
 
@@ -224,6 +228,7 @@ const Btechinterviewsubmission = () => {
           font-weight: bold;
         }
       `}</style>
+    </div>
     </div>
   );
 };

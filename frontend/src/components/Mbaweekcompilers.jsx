@@ -1,85 +1,125 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import Mbanavbar from './Mbanavbar';
+import Mcanavbar from './Mcaanavbar';
 
+const Mbaweekcompilers = () => {
+  const [weeks, setWeeks] = useState([]);
+  const [error, setError] = useState(null);
 
+  // Fetch weeks from the backend when the component mounts
+  useEffect(() => {
+    const fetchWeeks = async () => {
+      try {
+        const res = await axios.get('http://localhost:5000/api/compilerSubmissionss');
+        const weeksArray = Object.keys(res.data).map((week) => ({
+          week: parseInt(week),
+          submissions: res.data[week],
+        }));
+        setWeeks(weeksArray);
+      } catch (err) {
+        setError('Error fetching submissions');
+      }
+    };
 
-function Mbaweekcompilers() {
-    const [weeks, setWeeks] = useState([]);
+    fetchWeeks();
+  }, []);
 
-    useEffect(() => {
-        const fetchWeeks = async () => {
-            try {
-                const res = await axios.get('http://localhost:5000/api/compilerSubmissionss');
-                const weeksArray = Object.keys(res.data).map(week => ({
-                    week: parseInt(week),
-                    submissions: res.data[week],
-                }));
-                setWeeks(weeksArray);
-            } catch (err) {
-                console.error('Error fetching submissions:', err);
-            }
-        };
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
 
-        fetchWeeks();
-    }, []);
-
-    return (
-        <div>
-        <Mbanavbar/>
-            <div style={styles.app}>
-                <h1 style={styles.title}>All Weeks Coding Submissions</h1>
-                {weeks.length === 0 ? (
-                    <p>No submissions found.</p>
-                ) : (
-                    weeks.map(({ week, submissions }) => (
-                        <div key={week} style={styles.weekContainer}>
-                            <h2 style={styles.weekTitle}>
-                                <Link to={`/mbasubmissions/week/${week}`} style={styles.link}>
-                                    Week {week}
-                                </Link>
-                            </h2>
-                            <p style={styles.submissionCount}>
-                                Total Submissions: {submissions.length}
-                            </p>
-                        </div>
-                    ))
-                )}
-            </div>
+  return (
+    <div>
+      <Mcanavbar />
+      <br />
+      <div className="main-page">
+        <h2 className="title">All Weeks Coding Submissions</h2>
+        <div className="card-container">
+          {weeks.length === 0 ? (
+            <p>No submissions found.</p>
+          ) : (
+            weeks.map(({ week, submissions }) => (
+              <div key={week} className="card">
+                <Link to={`/mbasubmissions/week/${week}`} className="card-link">
+                  <h3 className="card-title">Week {week}</h3>
+                </Link>
+           
+              </div>
+            ))
+          )}
         </div>
-    );
-}
+      </div>
+
+      <style jsx>{`
+        body {
+          background-color: #f0f2f5;
+          margin: 0;
+          padding: 0;
+          font-family: Arial, sans-serif;
+        }
+        .main-page {
+          width: 80%;
+          max-width: 1000px;
+          margin: 0 auto;
+          padding: 20px;
+          text-align: center;
+          background-color: #ffffff;
+          border-radius: 8px;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .title {
+          font-size: 24px;
+          color: #333;
+          margin-bottom: 20px;
+        }
+        .card-container {
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 20px;
+        }
+       .card {
+          background-color: #007bff; /* Custom blue background for the cards */
+          border: 1px solid #0056b3; /* Darker blue border for contrast */
+          border-radius: 8px;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+          width: 200px;
+          text-align: center;
+          padding: 15px;
+          transition: transform 0.2s ease, box-shadow 0.2s ease;
+          color: #fff; /* White text for better readability */
+        }
+        .card:hover {
+          transform: translateY(-5px);
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+          background-color: #0056b3;
+        }
+        .card-link {
+          text-decoration: none;
+          color: #ffffff;
+        }
+        .card-link:hover {
+          text-decoration: underline;
+        }
+        .card-title {
+          font-size: 18px;
+          margin: 0;
+          color: #fff;
+        }
+        .submission-count {
+          font-size: 16px;
+          margin-top: 10px;
+          color: #fff;
+        }
+        .error {
+          text-align: center;
+          font-size: 18px;
+          color: #ff0000;
+        }
+      `}</style>
+    </div>
+  );
+};
 
 export default Mbaweekcompilers;
-
-// Styles
-const styles = {
-    app: {
-        padding: '20px',
-        fontFamily: 'Arial, sans-serif',
-    },
-    title: {
-        fontSize: '2em',
-        marginBottom: '20px',
-    },
-    weekContainer: {
-        marginBottom: '20px',
-        padding: '10px',
-        border: '1px solid #ccc',
-        borderRadius: '5px',
-        backgroundColor: '#fff', // Set the background color to white
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)', // Optional: add a subtle shadow
-    },
-    weekTitle: {
-        fontSize: '1.5em',
-        marginBottom: '10px',
-    },
-    submissionCount: {
-        marginBottom: '10px',
-    },
-    link: {
-        textDecoration: 'none',
-        color: '#007bff',
-    },
-};

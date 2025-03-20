@@ -47,6 +47,8 @@ app.get("/api/combined-score/:userId", async (req, res) => {
 
     // 1. Quiz Submissions: Assume each quiz submission has a numeric 'score'
     const quizSubs = await Submission.find({ userId });
+    
+
     const quizScore =
       quizSubs.length > 0
         ? quizSubs.reduce((sum, sub) => sum + sub.score, 0) / quizSubs.length
@@ -62,15 +64,24 @@ app.get("/api/combined-score/:userId", async (req, res) => {
     // 3. Compiler Submissions: Calculate a score per submission as a percentage
     const compilerSubs = await CompilerSubmission.find({ userId });
     let compilerScore = 0;
+    let totalPassedCases = 0;
+    let totalTestCases = 0;
+
     if (compilerSubs.length > 0) {
       const scores = compilerSubs.map(sub => {
         // Avoid division by zero
-        if (sub.totalTestCases > 0) {
-          return (sub.passedCount / sub.totalTestCases) * 100;
-        } else {
-          return 0;
-        }
+        const passedCases = sub.passedCount || 0;
+        const testCases = sub.totalTestCases || 0;
+        totalPassedCases += passedCases;
+        totalTestCases += testCases;
+       
+
+      
+
+        return testCases > 0 ? (passedCases / testCases) * 100 : 0;
+       
       });
+     
       compilerScore = scores.reduce((sum, val) => sum + val, 0) / scores.length;
     }
 
@@ -81,13 +92,84 @@ app.get("/api/combined-score/:userId", async (req, res) => {
       quizScore,
       interviewScore,
       compilerScore,
+      totalPassedCases,
+      totalTestCases,
       combinedAverage
     });
   } catch (error) {
     console.error("Error fetching combined score:", error);
     res.status(500).json({ error: "Failed to fetch combined score" });
+    const quizSubs = await Submission.find({ userId });
+const interviewSubs = await InterviewSubmission.find({ userId });
+const compilerSubs = await CompilerSubmission.find({ userId });
+
+console.log("Interview:", interviewSubs);
+console.log("Compiler:", compilerSubs);
+
   }
 });
+app.get("/api/weekly-scores/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+
+    // Fetch Compiler Submissions
+    const compilerSubmissions = await CompilerSubmission.find({ userId });
+    
+    // Fetch Quiz Submissions
+    const quizSubmissions = await Submission.find({ userId });
+
+    const weeklyScores = {};
+
+    // Process Compiler Scores
+    compilerSubmissions.forEach(sub => {
+      const week = sub.week;
+      const score = sub.passedCount || 0;
+
+      if (!weeklyScores[week]) {
+        weeklyScores[week] = { compilerScores: [], quizScores: [] };
+      }
+
+      weeklyScores[week].compilerScores.push(score);
+    });
+
+    // Process Quiz Scores
+    quizSubmissions.forEach(sub => {
+      const week = sub.week;
+      const score = sub.score || 0;
+
+      if (!weeklyScores[week]) {
+        weeklyScores[week] = { compilerScores: [], quizScores: [] };
+      }
+
+      weeklyScores[week].quizScores.push(score);
+    });
+
+    // Calculate Average for Both
+    const finalScores = {};
+
+    for (const week in weeklyScores) {
+      const compilerAvg = weeklyScores[week].compilerScores.length
+        ? (weeklyScores[week].compilerScores.reduce((a, b) => a + b, 0) / weeklyScores[week].compilerScores.length)
+        : 0;
+
+      const quizAvg = weeklyScores[week].quizScores.length
+        ? (weeklyScores[week].quizScores.reduce((a, b) => a + b, 0) / weeklyScores[week].quizScores.length)
+        : 0;
+
+      finalScores[week] = {
+        compilerAverage: compilerAvg.toFixed(2),
+        quizAverage: quizAvg.toFixed(2),
+        overallAverage: ((compilerAvg + quizAvg) / 2).toFixed(2),
+      };
+    }
+
+    res.status(200).json(finalScores);
+  } catch (error) {
+    console.error("Error fetching weekly scores:", error);
+    res.status(500).json({ error: "Failed to fetch weekly scores" });
+  }
+});
+
 // **📌 Route to Generate AI Content**
 app.post("/api/create-interview", async (req, res) => {
   try {
@@ -226,30 +308,31 @@ app.post("/api/generate-overall-feedback", async (req, res) => {
 });
 
 
-app.get("/api/job-positions", async (req, res) => {
+app.get("/api/interviewweeks", async (req, res) => {
   try {
-    const positions = await InterviewSubmission.distinct("jobPosition");
-    res.json(positions);
+    const weeks = await InterviewSubmission.distinct("week"); // Fetch distinct weeks
+    res.json(weeks);
   } catch (error) {
-    res.status(500).json({ error: "Error fetching job positions" });
+    res.status(500).json({ error: "Error fetching weeks" });
   }
 });
 
-app.get("/api/mca-jobsubmissions-and-non-submissions/:jobPosition", async (req, res) => {
-  const jobPosition = req.params.jobPosition;
+
+app.get("/api/mca-jobsubmissions-and-non-submissions/:week", async (req, res) => {
+  const week = parseInt(req.params.week); // Convert week to integer
   const { company } = req.query; // Filtering by company
 
   try {
-    // Filter users by batch containing "MCA"
-    const userFilter = { batch: /MCA/i }; // Case-insensitive match for MCA students
+    // Filter only MCA students
+    const userFilter = { batch: /MCA/i };
 
     const users = await userModel
       .find(userFilter)
       .select("name email batch rollno admissionno courseYear")
       .exec();
 
-    // Fetch submissions for the given jobPosition and company, filtering by MCA students
-    const submissionFilter = { jobPosition };
+    // Filter submissions based on week and company (if provided)
+    const submissionFilter = { week };
     if (company) {
       submissionFilter.company = company;
     }
@@ -261,16 +344,16 @@ app.get("/api/mca-jobsubmissions-and-non-submissions/:jobPosition", async (req, 
         select: "name email batch rollno courseYear admissionno",
         match: userFilter, // Ensures only MCA students are considered
       })
-      .select("submissionTime overallRating jobPosition company")
+      .select("submissionTime overallRating week jobPosition company")
       .exec();
 
-    // Remove null userIds (users who do not match MCA batch)
+    // Filter out null user IDs (if the user is not from MCA batch)
     const validSubmissions = submissions.filter(sub => sub.userId);
 
-    // Get user IDs who submitted
+    // Get IDs of users who submitted
     const submittedUserIds = new Set(validSubmissions.map(sub => sub.userId._id.toString()));
 
-    // Identify MCA students who have not submitted
+    // Filter out users who haven't submitted
     const nonSubmittedUsers = users.filter(user => !submittedUserIds.has(user._id.toString()));
 
     res.json({
@@ -285,6 +368,110 @@ app.get("/api/mca-jobsubmissions-and-non-submissions/:jobPosition", async (req, 
     });
   }
 });
+
+
+app.get("/api/mba-jobsubmissions-and-non-submissions/:week", async (req, res) => {
+  const week = parseInt(req.params.week); // Convert week to integer
+  const { company } = req.query; // Filtering by company
+
+  try {
+    // Filter only MCA students
+    const userFilter = { batch: /MBA/i };
+
+    const users = await userModel
+      .find(userFilter)
+      .select("name email batch rollno admissionno courseYear")
+      .exec();
+
+    // Filter submissions based on week and company (if provided)
+    const submissionFilter = { week };
+    if (company) {
+      submissionFilter.company = company;
+    }
+
+    const submissions = await InterviewSubmission.find(submissionFilter)
+      .populate({
+        path: "userId",
+        model: "users",
+        select: "name email batch rollno courseYear admissionno",
+        match: userFilter, // Ensures only MCA students are considered
+      })
+      .select("submissionTime overallRating week jobPosition company")
+      .exec();
+
+    // Filter out null user IDs (if the user is not from MCA batch)
+    const validSubmissions = submissions.filter(sub => sub.userId);
+
+    // Get IDs of users who submitted
+    const submittedUserIds = new Set(validSubmissions.map(sub => sub.userId._id.toString()));
+
+    // Filter out users who haven't submitted
+    const nonSubmittedUsers = users.filter(user => !submittedUserIds.has(user._id.toString()));
+
+    res.json({
+      submissions: validSubmissions,
+      nonSubmittedUsers,
+    });
+  } catch (error) {
+    console.error("Error fetching MCA job submissions and non-submissions:", error);
+    res.status(500).json({
+      message: "Error fetching MCA job submissions and non-submissions",
+      error: error.message,
+    });
+  }
+});
+
+app.get("/api/jobsubmissions-and-non-submissions/:week", async (req, res) => {
+  const week = parseInt(req.params.week); // Convert week to integer
+  const { company } = req.query; // Filtering by company
+
+  try {
+    // Exclude MBA and MCA students
+    const userFilter = { batch: { $not: /^(MBA|MCA)$/i } };
+
+    const users = await userModel
+      .find(userFilter)
+      .select("name email batch rollno admissionno courseYear")
+      .exec();
+
+    // Filter submissions based on week and company (if provided)
+    const submissionFilter = { week };
+    if (company) {
+      submissionFilter.company = company;
+    }
+
+    const submissions = await InterviewSubmission.find(submissionFilter)
+      .populate({
+        path: "userId",
+        model: "users",
+        select: "name email batch rollno courseYear admissionno",
+        match: userFilter, // Ensures only non-MBA and non-MCA students are considered
+      })
+      .select("submissionTime overallRating week jobPosition company")
+      .exec();
+
+    // Filter out null user IDs (if the user is not from the allowed batches)
+    const validSubmissions = submissions.filter(sub => sub.userId);
+
+    // Get IDs of users who submitted
+    const submittedUserIds = new Set(validSubmissions.map(sub => sub.userId._id.toString()));
+
+    // Filter out users who haven't submitted
+    const nonSubmittedUsers = users.filter(user => !submittedUserIds.has(user._id.toString()));
+
+    res.json({
+      submissions: validSubmissions,
+      nonSubmittedUsers,
+    });
+  } catch (error) {
+    console.error("Error fetching job submissions and non-submissions:", error);
+    res.status(500).json({
+      message: "Error fetching job submissions and non-submissions",
+      error: error.message,
+    });
+  }
+});
+
 app.get('/api/interview-submissions', async (req, res) => {
   try {
     const userId = req.headers['user-id']; // Get userId from headers
@@ -325,6 +512,7 @@ app.post("/api/submit-interview", async (req, res) => {
       answers,
       overallRating,
       feedback,
+      week,
       emotionDetected,
       combinedAverage,
       totalTimeTaken,
@@ -344,7 +532,8 @@ app.post("/api/submit-interview", async (req, res) => {
       jobPosition,
       experienceRequired,
       answers,
-      dueDate, // use the interview's dueDate
+      dueDate,
+      week, // use the interview's dueDate
       overallRating,
       feedback,
       emotionDetected,
@@ -463,6 +652,358 @@ app.get("/api/btech-submissions-and-non-submissions/:jobPosition", async (req, r
       error: error.message,
     });
   }
+});
+
+
+
+
+//timeslot
+app.post('/api/addtimeslot', async (req, res) => {
+  const { userIds, timeSlot, date, meetingLink } = req.body;
+  if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    return res.status(400).json({ status: 'error', message: 'No userIds provided' });
+  }
+  
+  try {
+    const newDate = new Date(date);
+    const month = newDate.getMonth();
+    const year = newDate.getFullYear();
+    
+    // Group selected users by courseYear.
+    const usersByCourse = {};
+    const users = await userModel.find({ _id: { $in: userIds } });
+    users.forEach(user => {
+      if (!usersByCourse[user.courseYear]) {
+        usersByCourse[user.courseYear] = [];
+      }
+      usersByCourse[user.courseYear].push(user._id);
+    });
+    
+    // Define the date range for the given month.
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    
+    // Process each courseYear group
+    for (let courseYear in usersByCourse) {
+      // Get all users in this course year that already have timeSlots in this month.
+      const usersInCourse = await userModel.find({ 
+        courseYear,
+        "timeSlots.date": { $gte: startDate, $lte: endDate }
+      }, { timeSlots: 1 });
+      
+      // Gather existing groups for this month and courseYear.
+      const existingGroups = {};
+      let maxGroupNumber = 0;
+      usersInCourse.forEach(user => {
+        user.timeSlots.forEach(slot => {
+          const slotDate = new Date(slot.date);
+          if (slotDate >= startDate && slotDate <= endDate) {
+            if (slot.timeSlot) {
+              // Map the timeSlot to its group.
+              existingGroups[slot.timeSlot] = slot.group;
+              // Expected format: `${courseYear}-Group<number>`
+              const parts = slot.group.split('Group');
+              if (parts.length === 2) {
+                const num = parseInt(parts[1], 10);
+                if (!isNaN(num) && num > maxGroupNumber) {
+                  maxGroupNumber = num;
+                }
+              }
+            }
+          }
+        });
+      });
+      
+      // Determine the group for the new timeSlot.
+      // If it already exists, reuse its group; otherwise, assign a new group.
+      let group;
+      if (existingGroups[timeSlot]) {
+        group = existingGroups[timeSlot];
+      } else {
+        group = `${courseYear}-Group${maxGroupNumber + 1}`;
+      }
+      
+      // For each user in this courseYear group, update if they haven't already booked the timeSlot.
+      for (let userId of usersByCourse[courseYear]) {
+        const user = await userModel.findById(userId);
+        const isSlotBooked = user.timeSlots.some(slot => {
+          const slotDate = new Date(slot.date);
+          return slot.timeSlot === timeSlot &&
+                 slotDate.getMonth() === month &&
+                 slotDate.getFullYear() === year;
+        });
+        if (isSlotBooked) {
+          continue; // Skip users that already have this time slot booked.
+        }
+        await userModel.findByIdAndUpdate(userId, {
+          $push: { timeSlots: { timeSlot, date, meetingLink, group } },
+        });
+      }
+    }
+    
+    res.json({ status: 'success', message: 'Time slot added successfully for selected users, grouped by course year and time slot.' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Fetch distinct months (you may want to adjust this based on your data structure)
+
+app.get('/api/userss', async (req, res) => {
+  try {
+    const users = await userModel.find(
+      { batch: 'MCA' }, // Filter MCA students
+      { 
+        name: 1, 
+        admissionno: 1, 
+        email: 1, 
+        courseYear: 1,  
+        rollno: 1,      
+        _id: 1, 
+        timeSlots: 1 
+      }
+    );
+    res.json(users);
+  } catch (error) {
+    res.json({ status: 'error', message: error.message });
+  }
+});
+
+
+app.get('/api/mbauserss', async (req, res) => {
+  try {
+    const users = await userModel.find(
+      { batch: 'MBA' }, // Filter MCA students
+      { 
+        name: 1, 
+        admissionno: 1, 
+        email: 1, 
+        courseYear: 1,  
+        rollno: 1,      
+        _id: 1, 
+        timeSlots: 1 
+      }
+    );
+    res.json(users);
+  } catch (error) {
+    res.json({ status: 'error', message: error.message });
+  }
+});
+
+  app.get('/api/btechuserss', async (req, res) => {
+    try {
+      const users = await userModel.find(
+        { batch: { $nin: ['MCA', 'MBA'] } }, // Exclude MCA and MBA students
+        { 
+          name: 1, 
+          admissionno: 1, 
+          email: 1, 
+          courseYear: 1,  
+          rollno: 1,      
+          _id: 1, 
+          timeSlots: 1 
+        }
+      );
+      res.json(users);
+    } catch (error) {
+      res.json({ status: 'error', message: error.message });
+    }
+  });
+  
+
+app.get('/api/months', async (req, res) => {
+  try {
+    // Filter only users whose batch is 'MCA'
+    const users = await userModel.find({ batch: 'MCA' }, { timeSlots: 1 });
+    const months = new Set();
+
+    users.forEach(user => {
+      user.timeSlots.forEach(slot => {
+        const date = new Date(slot.date);
+        const monthYear = `${date.getFullYear()}-${date.getMonth() + 1}`; // Format: YYYY-MM
+        months.add(monthYear);
+      });
+    });
+
+    res.json(Array.from(months)); // Return unique months as an array
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+
+app.get('/api/mbamonths', async (req, res) => {
+  try {
+    // Filter only users whose batch is 'MCA'
+    const users = await userModel.find({ batch: 'MBA' }, { timeSlots: 1 });
+    const months = new Set();
+
+    users.forEach(user => {
+      user.timeSlots.forEach(slot => {
+        const date = new Date(slot.date);
+        const monthYear = `${date.getFullYear()}-${date.getMonth() + 1}`; // Format: YYYY-MM
+        months.add(monthYear);
+      });
+    });
+
+    res.json(Array.from(months)); // Return unique months as an array
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+app.get('/api/btechmonths', async (req, res) => {
+  try {
+    // Filter only users whose batch is NOT MCA or MBA (i.e. BTech students)
+    const users = await userModel.find({ batch: { $nin: ['MCA', 'MBA'] } }, { timeSlots: 1 });
+    const months = new Set();
+
+    users.forEach(user => {
+      user.timeSlots.forEach(slot => {
+        const date = new Date(slot.date);
+        const monthYear = `${date.getFullYear()}-${date.getMonth() + 1}`; // Format: YYYY-MM
+        months.add(monthYear);
+      });
+    });
+
+    res.json(Array.from(months)); // Return unique months as an array
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+app.get('/api/timeslots/:month', async (req, res) => {
+  const { month } = req.params; // e.g., "2024-9"
+  const [year, monthNumber] = month.split('-').map(Number);
+
+  try {
+    const users = await userModel.find({}, { 
+      name: 1, 
+      email: 1, 
+      admissionno: 1,
+      rollno: 1, // Ensure this field exists in your userModel
+      courseYear: 1, // Ensure this field exists in your userModel
+      timeSlots: 1 
+    });
+
+    const timeSlots = [];
+
+    users.forEach(user => {
+      user.timeSlots.forEach(slot => {
+        const slotDate = new Date(slot.date);
+        if (slotDate.getFullYear() === year && slotDate.getMonth() + 1 === monthNumber) {
+          timeSlots.push({ 
+            rollno: user.rollno, // Add rollno
+            courseYear: user.courseYear ,
+            _id: slot._id, 
+            timeSlot: slot.timeSlot, 
+            date: slot.date, 
+            status: slot.status, // Include status
+            confirmationStatus: slot.confirmationStatus, // Include confirmation status
+            meetingLink: slot.meetingLink, // Include meeting link
+            userId: user._id, 
+            name: user.name, 
+            email: user.email, 
+            admissionno: user.admissionno,
+            rollno: user.rollno, // Include roll number
+           courseYear: user.courseYear // Include semester
+          });
+        }
+      });
+    });
+
+    res.json(timeSlots); // Send the time slots with additional fields included
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+// Mark a time slot as attended
+app.post('/api/updatestatus', async (req, res) => {
+  const { userId, slotId, status } = req.body;
+
+  // Validate status value
+  if (status !== 'attended' && status !== 'not attended') {
+    return res.status(400).json({ status: 'error', message: 'Invalid status value. Must be "attended" or "not attended".' });
+  }
+
+  try {
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    const slot = user.timeSlots.id(slotId);
+    if (!slot) {
+      return res.status(404).json({ status: 'error', message: 'Slot not found' });
+    }
+
+    // Update the slot's status
+    slot.status = status;
+    await user.save();
+
+
+    res.json({ status: 'success', message: `Time slot marked as ${status}` });
+  } catch (error) {
+    console.error('Error updating status:', error); // Log error for debugging
+    res.status(500).json({ status: 'error', message: 'An error occurred while updating the status.' });
+  }
+});
+
+app.get('/api/users/:userId/timeslots', async (req, res) => {
+  const { userId } = req.params; // Extract userId from the URL
+
+  try {
+    const user = await userModel.findById(userId, { timeSlots: 1 }); // Fetch only the timeSlots field
+    if (!user) {
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+    res.json(user.timeSlots); // Send the time slots as the response
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+});
+
+
+// Fetch distinct months (you may want to adjust this based on your data structure)
+
+app.delete('/api/users/:userId/timeslots/:slotId', async (req, res) => {
+  const { userId, slotId } = req.params;
+
+  try {
+    // Update the user by removing the specific slot from the time slots array
+    await userModel.findByIdAndUpdate(userId, {
+      $pull: { timeSlots: { _id: slotId } } // Remove the time slot by its ID
+    });
+
+    res.status(200).json({ message: 'Time slot deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting time slot:', error);
+    res.status(500).json({ message: 'Error deleting time slot', error });
+  }
+});
+
+app.put('/api/users/:userId/timeslots/update/:slotId', async (req, res) => {
+const { userId, slotId } = req.params;
+const { confirmationStatus } = req.body; // Get confirmation status from request body
+
+try {
+  const user = await userModel.findById(userId);
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  const slot = user.timeSlots.id(slotId);
+  if (!slot) {
+    return res.status(404).json({ message: 'Time slot not found' });
+  }
+
+  slot.confirmationStatus = confirmationStatus; // Update confirmation status
+  await user.save(); // Save the updated user document
+  return res.status(200).json({ message: 'Time slot updated successfully', timeSlots: user.timeSlots });
+} catch (error) {
+  console.error('Error updating time slot:', error);
+  res.status(500).json({ message: 'Error updating time slot' });
+}
 });
 
 
@@ -897,6 +1438,30 @@ app.delete('/api/job-submissionss/:id', async (req, res) => {
     res.status(500).json({ message: 'Error deleting job submission' });
   }
 });
+app.get('/api/job-submissionss', async (req, res) => {
+  try {
+    const jobSubmissions = await Jobsubmission.find({});
+    res.status(200).json(jobSubmissions);
+  } catch (error) {
+    console.error('Error fetching job submissions:', error);
+    res.status(500).json({ message: 'Error fetching job submissions' });
+  }
+});
+
+// Route to delete a job submission by ID
+app.delete('/api/job-submissionss/:id', async (req, res) => {
+  try {
+    const deleteResult = await Jobsubmission.findByIdAndDelete(req.params.id);
+    if (deleteResult) {
+      res.status(200).json({ message: 'Job submission deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Job submission not found' });
+    }
+  } catch (error) {
+    console.error('Error deleting job submission:', error);
+    res.status(500).json({ message: 'Error deleting job submission' });
+  }
+});
 
 app.get("/api/jobsss", async (req, res) => {
     try {
@@ -1095,7 +1660,7 @@ app.get('/api/available-weekss', async (req, res) => {
   
   // Route to handle quiz submission and evaluate answers
   app.post('/api/submit-quiz', async (req, res) => {
-    const { week, answers, dueDate,company} = req.body; // Include dueDate in the request
+    const { week, answers, dueDate,company,totalQuestions} = req.body; // Include dueDate in the request
   
     if (!Array.isArray(answers) || answers.length === 0) {
       return res.status(400).json({ message: 'No answers provided' });
@@ -1155,7 +1720,9 @@ app.get('/api/available-weekss', async (req, res) => {
         score,
         company,
         submissionTime: new Date(), // Save submission time
-        dueDate: dueDate, // Save the due date
+        dueDate: dueDate,
+        totalQuestions,
+         // Save the due date
       });
       await newSubmission.save();
   
@@ -1172,16 +1739,22 @@ app.get('/api/available-weekss', async (req, res) => {
   app.get('/api/company/:company/week/:week', async (req, res) => {
     const { company, week } = req.params;
     try {
-        const questions = await Question.find({ company: company, week });
+        let questions = await Question.find({ company: company, week });
+
         if (questions.length === 0) {
             return res.status(404).json({ message: 'No questions found for this company and week.' });
         }
+
+        // Shuffle the questions array
+        questions = questions.sort(() => Math.random() - 0.5);
+
         res.json(questions);
     } catch (error) {
         console.error('Error fetching questions:', error);
         res.status(500).json({ message: 'Error fetching questions', error: error.message });
     }
 });
+
 
   
 // POST route to submit admin answers
@@ -1631,8 +2204,6 @@ app.post('/api/cquestions', (req, res) => {
     }
 });
 
-
-
 const executeCode = (code, language, input, callback) => {
   const fileName = `Main.${language === 'python' ? 'py' : language === 'java' ? 'java' : 'c'}`;
   fs.writeFileSync(fileName, code);
@@ -1640,172 +2211,141 @@ const executeCode = (code, language, input, callback) => {
   let command, args;
 
   switch (language) {
-      case 'python':
-          // First, try using 'python', then fallback to 'python3' if 'python' fails
-          command = 'python'; // Try 'python'
-          args = [fileName];
+    case 'python':
+      command = 'python';
+      args = [fileName];
 
-          const pythonProcess = spawn(command, args);
+      const pythonProcess = spawn(command, args);
+      let pythonOutput = '';
+      let pythonError = '';
 
-          let pythonOutput = '';
-          let pythonError = '';
+      pythonProcess.stdin.write(input);
+      pythonProcess.stdin.end();
 
-          pythonProcess.stdin.write(input); // Pass the input to stdin
-          pythonProcess.stdin.end(); // Close stdin after input is passed
+      pythonProcess.stdout.on('data', (data) => {
+        pythonOutput += data.toString();
+      });
 
-          pythonProcess.stdout.on('data', (data) => {
-              pythonOutput += data.toString();
-          });
+      pythonProcess.stderr.on('data', (data) => {
+        pythonError += data.toString();
+      });
 
-          pythonProcess.stderr.on('data', (data) => {
-              pythonError += data.toString();
-          });
+      pythonProcess.on('close', (code) => {
+        if (code !== 0) {
+          callback(pythonError.trim(), null);
+        } else {
+          callback(null, pythonOutput.trim());
+        }
+      });
+      return;
 
-          pythonProcess.on('close', (code) => {
-              if (code !== 0 || pythonError) {
-                  // If 'python' fails, fallback to 'python3'
-                  command = 'python'; // Try 'python3'
-                  const python3Process = spawn(command, args);
+    case 'java':
+      command = 'javac';
+      args = [fileName];
 
-                  let python3Output = '';
-                  let python3Error = '';
+      const compileProcess = spawn(command, args);
+      let compileError = ''; // To capture Java compilation errors
 
-                  python3Process.stdin.write(input); // Pass the input to stdin
-                  python3Process.stdin.end(); // Close stdin after input is passed
+      compileProcess.stderr.on('data', (data) => {
+        compileError += data.toString();
+      });
 
-                  python3Process.stdout.on('data', (data) => {
-                      python3Output += data.toString();
-                  });
+      compileProcess.on('close', (code) => {
+        if (code !== 0) {
+          return callback(compileError.trim(), null); // Send Java compilation error
+        }
 
-                  python3Process.stderr.on('data', (data) => {
-                      python3Error += data.toString();
-                  });
+        const runProcess = spawn('java', ['Main']);
+        let output = '';
+        let error = '';
 
-                  python3Process.on('close', (code) => {
-                      if (code !== 0 || python3Error) {
-                          callback(python3Error || 'Error executing Python code');
-                      } else {
-                          callback(null, python3Output.trim());
-                      }
-                  });
-              } else {
-                  callback(null, pythonOutput.trim());
-              }
-          });
-          return;
+        runProcess.stdin.write(input);
+        runProcess.stdin.end();
 
-      case 'java':
-          // First, compile the Java file
-          command = 'javac';
-          args = [fileName];
+        runProcess.stdout.on('data', (data) => {
+          output += data.toString();
+        });
 
-          const compileProcess = spawn(command, args);
+        runProcess.stderr.on('data', (data) => {
+          error += data.toString();
+        });
 
-          compileProcess.on('close', (code) => {
-              if (code !== 0) {
-                  return callback('Error compiling Java code');
-              }
+        runProcess.on('close', (code) => {
+          if (code !== 0) {
+            callback(error.trim(), null); // Send Java runtime error
+          } else {
+            callback(null, output.trim());
+          }
+        });
+      });
+      return;
 
-              // If compilation succeeds, execute the compiled Java program
-              command = 'java';
-              args = ['Main']; // The compiled class file name is 'Main'
+    case 'c':
+      command = 'gcc';
+      args = [fileName, '-o', 'code'];
 
-              const runProcess = spawn(command, args);
+      const compileCProcess = spawn(command, args);
+      let compileCError = ''; // To capture C compilation errors
 
-              let output = '';
-              let error = '';
+      compileCProcess.stderr.on('data', (data) => {
+        compileCError += data.toString();
+      });
 
-              runProcess.stdin.write(input); // Pass the input to stdin
-              runProcess.stdin.end(); // Close stdin after input is passed
+      compileCProcess.on('close', (compileCode) => {
+        if (compileCode !== 0) {
+          return callback(compileCError.trim(), null); // Send C compilation error
+        }
 
-              runProcess.stdout.on('data', (data) => {
-                  output += data.toString();
-              });
+        const runCProcess = spawn('./code');
+        let output = '';
+        let error = '';
 
-              runProcess.stderr.on('data', (data) => {
-                  error += data.toString();
-              });
+        runCProcess.stdin.write(input);
+        runCProcess.stdin.end();
 
-              runProcess.on('close', (code) => {
-                  if (code !== 0 || error) {
-                      callback(error || 'Execution error');
-                  } else {
-                      callback(null, output.trim());
-                  }
-              });
-          });
-          return;
+        runCProcess.stdout.on('data', (data) => {
+          output += data.toString();
+        });
 
-      case 'c':
-          // Compile the C code
-          command = 'gcc';
-          args = [fileName, '-o', 'code']; // Output executable will be named 'code.exe'
+        runCProcess.stderr.on('data', (data) => {
+          error += data.toString();
+        });
 
-          const compileCProcess = spawn(command, args);
+        runCProcess.on('close', (runCode) => {
+          if (runCode !== 0) {
+            callback(error.trim(), null); // Send C runtime error
+          } else {
+            callback(null, output.trim());
+          }
+        });
+      });
+      return;
 
-          compileCProcess.on('close', (compileCode) => {
-              if (compileCode !== 0) {
-                  return callback('Error compiling C code');
-              }
-
-              // Execute the compiled code (use 'code.exe' on Windows)
-              const runCProcess = spawn('./code.exe'); // For Windows
-
-              let output = '';
-              let error = '';
-
-              runCProcess.stdin.write(input); // Pass input to stdin
-              runCProcess.stdin.end(); // Close stdin after input
-
-              runCProcess.stdout.on('data', (data) => {
-                  output += data.toString();
-              });
-
-              runCProcess.stderr.on('data', (data) => {
-                  error += data.toString();
-              });
-
-              runCProcess.on('close', (runCode) => {
-                  if (runCode !== 0 || error) {
-                      callback(error || 'Execution error');
-                  } else {
-                      callback(null, output.trim());
-                  }
-              });
-          });
-          return;
-
-      default:
-          return callback('Unsupported language');
+    default:
+      return callback('Unsupported language', null);
   }
 };
 
-// Route to run code
+// API route to run code
 app.post('/api/compiler/run', (req, res) => {
-  const { code, language, input, expectedOutput } = req.body;
+  const { code, language, input } = req.body;
 
-  // Validate input
-  if (!code || !language || expectedOutput === undefined) {
-      return res.status(400).json({ error: 'Code, language, and expected output are required.' });
+  if (!code || !language) {
+    return res.status(400).json({ error: 'Code and language are required' });
   }
 
-  // Run the code with input
-  executeCode(code, language, input, (err, output) => {
-      if (err) {
-          return res.status(500).json({ output: 'Error executing code', error: err });
-      }
-
-      // Trim both output and expectedOutput before comparison
-      const testPassed = output.trim() === expectedOutput.trim();
-
-      res.json({
-          output,
-          result: {
-              expected: expectedOutput,
-              actual: output,
-              passed: testPassed,
-          },
+  executeCode(code, language, input, (error, output) => {
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: error, // Send exact error here
       });
+    }
+
+    res.json({
+      success: true,
+      output: output,
+    });
   });
 });
 
@@ -2092,6 +2632,30 @@ app.get('/api/questions/week/:week', async (req, res) => {
   }
 });
 
+  
+    // Fetch user compiler submissions
+    app.get('/api/compiler-submissionsss', async (req, res) => {
+      try {
+          // Retrieve userId from session storage or request headers
+          const userId = req.headers['user-id'] // Adjust this if you're using a different method
+    
+          // Fetch submissions for the logged-in user
+          const submissions = await CompilerSubmission.find({ userId })
+              .select('week submissionDate passedCount totalTestCases company') // Select only the fields you need
+              .exec();
+    
+          // Check if submissions were found
+          if (!submissions.length) {
+              return res.status(404).json({ message: 'No submissions found for this user' });
+          }
+    
+          res.json({ status: 'success', submissions });
+      } catch (error) {
+          console.error('No Submissions Found:', error);
+          res.status(500).json({ status: 'error', message: error.message });
+      }
+    });
+    
 // Fetch passed test cases for a specific week with populated questionId
 app.get('/api/passedTestCases/week/:week', async (req, res) => {
   const { week } = req.params;

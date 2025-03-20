@@ -260,6 +260,7 @@ function ViewQuestions() {
         dueDate: interview.dueDate,
         overallRating,
         feedback,
+        week:interview.week,
         emotionDetected: {
           perQuestionAverages: allFaceScores,
           overallAverage: overallFaceScore,

@@ -72,6 +72,17 @@ import Btechfourweek from './components/Btechfourweek';
 import BtechjobPositionsPage from './components/Btechjobpositionpage';
 import Deletecode from './components/Deletecode';
 import Deletequiz from './components/Deletequiz';
+import Room from './components/Room';
+import Adminroom from './components/Adminroom';
+import Roomhome from './components/Roomhome';
+import Offdelete from './components/Offdelete';
+import MonthPage from './components/Monthpage';
+import Usertimeslots from './components/Usertimeslots';
+import UsersList from './components/Userlist';
+import MbaUsersList from './components/Mbauserlist';
+import MbaMonthPage from './components/Mbamonth';
+import BtechMonthPage from './components/Btechmonthpage';
+import BtechUsersList from './components/Btechuserlist';
 
 function App() {
   return (
@@ -87,6 +98,15 @@ function App() {
     <Route path='mcasubmissions/:jobPosition' element={<Interviewsubmission/>}/>
     <Route path='mbasubmissions/:jobPosition' element={<Mbainterviewsubmission/>}/>
     <Route path='btechsubmissions/:jobPosition' element={<Btechinterviewsubmission/>}/>
+
+
+    <Route path="/monthpage" element={<MonthPage/>} />  
+    <Route path="/mbamonthpage" element={<MbaMonthPage/>} /> 
+    <Route path="/btechmonthpage" element={<BtechMonthPage/>} /> 
+    <Route path="/user/timeslots" element={<Usertimeslots />} />  
+    <Route path="/userlist" element={<UsersList/>} />
+    <Route path="/mbauserlist" element={<MbaUsersList/>} />
+    <Route path="/btechuserlist" element={<BtechUsersList/>} />
 
 
 
@@ -128,6 +148,7 @@ function App() {
 
     <Route path="/Addoffcampus" element={<Addoffcampus />} />
     <Route path="/Soffcampus" element={<Soffcampus/>} />
+    <Route path="/offdelete" element={<Offdelete/>} />
     <Route path="/prediction" element={<Prediction/>} />
 
    <Route path="/weeklist" element={<Aweekslist/>} />
@@ -157,7 +178,9 @@ function App() {
     <Route path="/btechsubmissions/week/:week" element={<BtechweekSubmissions/>} />
     <Route path="/deletecode" element={<Deletecode />} />
 
-
+    <Route path='/roomhome' element={<Roomhome />}/>
+      <Route path='/adminroomhome' element={<Adminroom />}/>
+      <Route path='/room/:roomid' element={<Room />}/>
 
       
  

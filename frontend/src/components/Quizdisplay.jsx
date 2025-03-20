@@ -25,9 +25,12 @@ const QuizComponent = () => {
     const fetchQuestions = async () => {
       try {
         const res = await axios.get(`http://localhost:5000/api/company/${company}/week/${week}`);
-        setQuestions(res.data);
-        // Initialize answers array as empty; we push answers as user proceeds.
-        setAnswers([]);
+        
+        // Shuffle the questions array on the client side
+        const shuffledQuestions = res.data.sort(() => Math.random() - 0.5);
+
+        setQuestions(shuffledQuestions);
+        setAnswers([]); // Initialize answers array as empty
         setLoading(false);
       } catch (error) {
         console.error('Error fetching questions:', error);
@@ -91,6 +94,7 @@ const QuizComponent = () => {
       const res = await axios.post('http://localhost:5000/api/submit-quiz', {
         week,
         answers: finalAnswers,
+        totalQuestions: finalAnswers.length, 
         dueDate: new Date(),
         company,
       }, {

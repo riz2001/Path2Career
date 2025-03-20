@@ -57,7 +57,7 @@ const Mcanavbar = () => {
               </ul>
             </div>
 
-            {/* INTERVIEW Dropdown
+            INTERVIEW Dropdown
             <div className="dropdown d-flex align-items-center mx-3">
               <a className="navbar-brand text-light dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
                 INTERVIEW
@@ -68,7 +68,7 @@ const Mcanavbar = () => {
                 <li><a className="dropdown-item" href="/monthpage">Review</a></li>
                 <li><a className="dropdown-item" href="/deletemonth">Delete</a></li>
               </ul>
-            </div> */}
+            </div>
 
             {/* APTITUDE TEST Dropdown */}
             <div className="dropdown d-flex align-items-center mx-3">

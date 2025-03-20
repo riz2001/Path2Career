@@ -10,6 +10,10 @@ const submissionSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  totalQuestions: { // Store total number of questions
+    type: Number,
+    required: true,
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'users',

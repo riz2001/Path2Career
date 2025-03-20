@@ -12,6 +12,10 @@ const interviewSubmissionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    week: {
+      type: Number,
+      required:true,
+    },
     jobPosition: {
       type: String,
       required: true,

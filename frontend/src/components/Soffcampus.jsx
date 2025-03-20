@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import Usernavbar1 from './Usernavbar1';
 
 
-import Adminnavbar from './Adminnavbar';
 
 // CSS styles as a string
 const styles = {
@@ -136,8 +136,7 @@ const Soffcampus = () => {
 
   return (
     <div>
-       <Adminnavbar/>
-  
+       <Usernavbar1/>
     <div style={styles.container}>
       <h2 style={{ textAlign: 'center', marginBottom: '20px' }}><b>OFFCAMPUS JOBS </b></h2>
       {submissions.length > 0 ? (

@@ -15,6 +15,7 @@ const userSchema = new mongoose.Schema({
       timeSlot: { type: String, required: true },
       date: { type: Date, required: true },
       meetingLink: String,
+      group: { type: String, default: 1 }, 
       status: { type: String, enum: ['attended', 'not attended', 'pending'], default: 'pending' },
       confirmationStatus: { type: String, enum: ['confirmed', 'declined', 'pending'], default: 'pending' } // New field for attendance confirmation
     },

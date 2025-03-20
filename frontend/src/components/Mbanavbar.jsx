@@ -57,7 +57,7 @@ const Mbanavbar = () => {
                 <li><a className="dropdown-item" href="/offdelete">Delete Off-Campus</a></li>
               </ul>
             </div>
-{/* 
+
             INTERVIEW Dropdown
             <div className="dropdown d-flex align-items-center mx-3">
               <a className="navbar-brand text-light dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -65,11 +65,11 @@ const Mbanavbar = () => {
               </a>
               <ul className="dropdown-menu">
                 <li><a className="dropdown-item" href="#" onClick={handleCreateRoom}>Mock Interview</a></li>
-                <li><a className="dropdown-item" href="/userlist">Add Time Slot</a></li>
-                <li><a className="dropdown-item" href="/monthpage">Review</a></li>
+                <li><a className="dropdown-item" href="/mbauserlist">Add Time Slot</a></li>
+                <li><a className="dropdown-item" href="/mbamonthpage">Review</a></li>
                 <li><a className="dropdown-item" href="/deletemonth">Delete</a></li>
               </ul>
-            </div> */}
+            </div>
 
             {/* APTITUDE TEST Dropdown */}
             <div className="dropdown d-flex align-items-center mx-3">

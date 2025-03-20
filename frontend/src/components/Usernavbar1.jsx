@@ -49,7 +49,7 @@ const Usernavbar1 = () => {
           {/* INTERVIEW DROPDOWN */}
           <div className="dropdown">
             <a className="navbar-brand dropdown-toggle text-light" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false" style={styles.navItem}>
-              INTERVIEW
+              GD
             </a>
             <ul className="dropdown-menu" aria-labelledby="dropdownMenuLink">
               <li><a className="dropdown-item" onClick={handleCreateRoom} style={styles.dropdownItem}>MOCK INTERVIEW</a></li>
@@ -75,14 +75,14 @@ const Usernavbar1 = () => {
             </a>
             <ul className="dropdown-menu" aria-labelledby="dropdownMenuLink">
               <li><a className="dropdown-item" href="/i"  style={styles.dropdownItem}>MOCK INTERVIEW</a></li>
-              <li><a className="dropdown-item" href="/user/timeslots" style={styles.dropdownItem}>SLOT BOOKING</a></li>
+   
               <li><a className="dropdown-item" href="/userinterviews" style={styles.dropdownItem}>HISTORY</a></li>
             </ul>
           </div>
  {/* CODING DROPDOWN */}
  <div className="dropdown">
             <a className="navbar-brand dropdown-toggle text-light" href="#" role="button" id="dropdownMenuLink" data-bs-toggle="dropdown" aria-expanded="false" style={styles.navItem}>
-             PLACEMENT ANALYSIS
+            PERFORMANCE ANALYSIS
             </a>
             <ul className="dropdown-menu" aria-labelledby="dropdownMenuLink">
               <li><a className="dropdown-item" href="/prediction" style={styles.dropdownItem}>ANALYSIS</a></li>
@@ -97,7 +97,7 @@ const Usernavbar1 = () => {
             </a>
             <ul className="dropdown-menu" aria-labelledby="dropdownMenuLink">
               <li><a className="dropdown-item" href="Cweeks" style={styles.dropdownItem}>CODING TEST</a></li>
-              <li><a className="dropdown-item" href="/Ucompilers" style={styles.dropdownItem}>CODING ATTENDANCE</a></li>
+              <li><a className="dropdown-item" href="/ucompilers" style={styles.dropdownItem}>CODING ATTENDANCE</a></li>
               <li><a className="dropdown-item" href="/Passeddisplay" style={styles.dropdownItem}>SOLUTION</a></li>
              
             </ul>
@@ -107,26 +107,9 @@ const Usernavbar1 = () => {
           <a className="navbar-brand text-light" href="#"></a>
           <a className="navbar-brand text-light" href="#"></a>
           <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
-          <a className="navbar-brand text-light" href="#"></a>
+         
+          
+          
 
           {/* PROFILE & SIGNOUT DROPDOWN */}
           <div className="dropdown">
