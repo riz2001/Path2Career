@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import Adminnavbar from './Adminnavbar';
+import Mcanavbar from './Mcaanavbar';
 
 // CSS Styles
 const styles = {
@@ -239,7 +240,7 @@ const UsersList = () => {
 
   return (
     <div>
-      <Adminnavbar />
+      <Mcanavbar />
       <div style={styles.container}>
         <h2 style={styles.title}>ADD TIME SLOT</h2>
         

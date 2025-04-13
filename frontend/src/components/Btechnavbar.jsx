@@ -57,19 +57,19 @@ const Btechnavbar = () => {
                 <li><a className="dropdown-item" href="/offdelete">Delete Off-Campus</a></li>
               </ul>
             </div>
-
-            {/* INTERVIEW Dropdown
+{/* 
+            INTERVIEW Dropdown */}
             <div className="dropdown d-flex align-items-center mx-3">
               <a className="navbar-brand text-light dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                INTERVIEW
+                GD
               </a>
               <ul className="dropdown-menu">
-                <li><a className="dropdown-item" href="#" onClick={handleCreateRoom}>Mock Interview</a></li>
-                <li><a className="dropdown-item" href="/userlist">Add Time Slot</a></li>
-                <li><a className="dropdown-item" href="/monthpage">Review</a></li>
-                <li><a className="dropdown-item" href="/deletemonth">Delete</a></li>
+                <li><a className="dropdown-item" href="#" onClick={handleCreateRoom}>GD</a></li>
+                <li><a className="dropdown-item" href="/btechuserlist">Add Time Slot</a></li>
+                <li><a className="dropdown-item" href="/btechmonthpage">Review</a></li>
+        
               </ul>
-            </div> */}
+            </div>
 
             {/* APTITUDE TEST Dropdown */}
             <div className="dropdown d-flex align-items-center mx-3">
@@ -81,7 +81,7 @@ const Btechnavbar = () => {
                 <li><a className="dropdown-item" href="/btechweeklist">Aptitude Attendance</a></li>
            
                 <li><a className="dropdown-item" href="/btechscoretable">Result</a></li>
-                <li><a className="dropdown-item" href="/deletequiz">Deletion</a></li>
+               
               </ul>
             </div>
 
@@ -95,7 +95,7 @@ const Btechnavbar = () => {
                 <li><a className="dropdown-item" href="/btechsubmissionweeks">Coding Attendance</a></li>
        
                 <li><a className="dropdown-item" href="/btechFourweek">Result</a></li>
-                <li><a className="dropdown-item" href="/deletecode">Deletion</a></li>
+             
               </ul>
             </div>
 
@@ -106,10 +106,9 @@ const Btechnavbar = () => {
               </a>
               <ul className="dropdown-menu">
     
-                <li><a className="dropdown-item" href="/btechjobposition">INTERVIEW ATTENDENCE</a></li>
+                <li><a className="dropdown-item" href="/btechjobposition">Interview attendance</a></li>
                 
-                <li><a className="dropdown-item" href="/createinterview">CREATE INTERVIEW</a></li>
-           
+            
               </ul>
             </div>
           

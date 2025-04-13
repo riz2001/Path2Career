@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import styled from 'styled-components';
 
 // Styled Components
@@ -55,25 +56,37 @@ const Button = styled.button`
 const AdminLogin = () => {
   const navigate = useNavigate();
   const [input, setInput] = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     setInput({ ...input, [e.target.name]: e.target.value });
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-
-    // Redirection based on email
-    if (input.email === 'mca@gmail.com' && input.password === '12345678') {
-      navigate('/mcaapprove');
-    } else if (input.email === 'mba@gmail.com' && input.password === '12345678') {
-      navigate('/mbaapprove');
-    } else if (input.email === 'btech@gmail.com' && input.password === '12345678') {
-      navigate('/btechapprove');
-    } else if (input.email === 'admin@gmail.com' && input.password === '12345678') {
-      navigate('/updateaptitude');
-    } else {
-      alert('Invalid email or password');
+    setLoading(true);
+    try {
+      // Post credentials to your login API endpoint
+      const response = await axios.post('http://localhost:5000/api/login', input);
+      // Assume the API returns an object with a type field
+      const { type } = response.data;
+      
+      // Navigate based on user type
+      if (type === 'mca') {
+        navigate('/mcaapprove');
+      } else if (type === 'mba') {
+        navigate('/mbaapprove');
+      } else if (type === 'btech') {
+        navigate('/btechapprove');
+      } else if (type === 'admin') {
+        navigate('/updateaptitude');
+      } else {
+        alert('User type not recognized');
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Invalid email or password');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -98,7 +111,9 @@ const AdminLogin = () => {
             onChange={handleChange}
             required
           />
-          <Button type="submit">Login</Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? 'Logging in...' : 'Login'}
+          </Button>
         </form>
       </LoginBox>
     </Container>

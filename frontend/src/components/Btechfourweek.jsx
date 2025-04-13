@@ -33,7 +33,7 @@ const Btechfourweek = () => {
     const endWeek = weeks ? parseInt(weeks[1]) : 4; // Adjust according to your logic
 
     try {
-      const response = await axios.get(`http://localhost:5000/api/scoress/${startWeek}/${endWeek}`);
+      const response = await axios.get(`http://localhost:5000/api/btechscoresss/${startWeek}/${endWeek}`);
       setScores(response.data);
     } catch (error) {
       console.error('Error fetching scores:', error);

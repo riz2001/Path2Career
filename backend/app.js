@@ -17,6 +17,8 @@ const jwt = require("jsonwebtoken");
 const jobModel = require("./models/job");
 const bodyParser = require('body-parser');
 const fs = require('fs');
+const multer = require('multer');
+const Admin = require('./models/admin'); 
 const { spawn } = require('child_process');
 const InterviewSubmission = require("./models/interviewsubmission"); // ✅ Correct path
 
@@ -27,7 +29,7 @@ app.use(bodyParser.json());
 app.use(cors()); // Enable CORS for all origins
 
 // MongoDB Connection
-const mongoURI = "mongodb+srv://rizwan2001:rizwan2001@cluster0.6ucejfl.mongodb.net/path2career?retryWrites=true&w=majority&appName=Cluster0";
+const mongoURI = "mongodb+srv://rizwan2001:rizwan2001@cluster0.6ucejfl.mongodb.net/path2careernew?retryWrites=true&w=majority&appName=Cluster0";
 
 mongoose.connect(mongoURI, {
   useNewUrlParser: true,
@@ -41,24 +43,129 @@ mongoose.connect(mongoURI, {
 // Set your Gemini API key directly in the code
 const GEMINI_API_KEY = "AIzaSyB1cE9da4QfoAUyRZat367HLOGTqYtZWa0"; // Replace with your actual API key
 const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
+const recordingSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  timeSlotId: { type: String, required: true },
+  fileUrl: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now }
+});
+
+const Recording = mongoose.model('Recording', recordingSchema);
+
+
+app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static('uploads')); // Serve the uploads folder
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, 'uploads'); // Directory to store uploaded images
+    },
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`); // File naming convention
+    },
+  });
+  
+  const upload = multer({ storage });
+  const uploads = multer({ storage });
+
+app.post('/api/upload', uploads.single('videoFile'), async (req, res) => {
+  try {
+    const videoFile = req.file;
+    const { userId, timeSlotId } = req.body; // Expect these fields in FormData
+    if (!videoFile) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    // Create a new recording document
+    const newRecording = new Recording({
+      userId,
+      timeSlotId,
+      fileUrl: videoFile.path, // Path where file is stored locally
+      timestamp: new Date(),
+    });
+
+    await newRecording.save();
+    res.status(201).json({ fileUrl: videoFile.path });
+  } catch (error) {
+    console.error("Error uploading recording:", error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
+app.get('/api/meetings', async (req, res) => {
+  try {
+    const meetings = await Recording.find(); // Retrieve all recordings
+    res.json(meetings);
+  } catch (error) {
+    console.error('Error fetching meetings:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+app.post('/api/create-admin', async (req, res) => {
+  const {  email, password, type } = req.body;
+
+  // Basic validation
+  if ( !email || !password || !type) {
+    return res.status(400).json({ message: 'Name, email, password and type are required.' });
+  }
+  
+  // Ensure type is valid (this check is optional since the schema enforces it)
+  const allowedTypes = ['btech', 'mca', 'mba', 'admin'];
+  if (!allowedTypes.includes(type)) {
+    return res.status(400).json({ message: `Type must be one of: ${allowedTypes.join(', ')}` });
+  }
+
+  try {
+    // In production, be sure to hash the password!
+    const admin = new Admin({  email, password, type });
+    await admin.save();
+    res.json({ message: 'Admin created successfully', admin });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating admin', error: error.message });
+  }
+});
+app.post('/api/login', async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
+  try {
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+    // In production, compare hashed passwords using bcrypt
+    if (admin.password !== password) {
+      return res.status(401).json({ message: 'Invalid credentials.' });
+    }
+    // Return a response that includes a type field
+    res.json({
+      message: 'Login successful',
+      type: admin.type,  // "mca", "mba", "btech", or "admin"
+      admin
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+})
+
 app.get("/api/combined-score/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
 
     // 1. Quiz Submissions: Assume each quiz submission has a numeric 'score'
     const quizSubs = await Submission.find({ userId });
+
+    const totalQuestionsAttempted = quizSubs.reduce((sum, sub) => sum + sub.totalQuestions, 0);
+    const totalScore = quizSubs.reduce((sum, sub) => sum + sub.score, 0);
     
-
-    const quizScore =
-      quizSubs.length > 0
-        ? quizSubs.reduce((sum, sub) => sum + sub.score, 0) / quizSubs.length
-        : 0;
-
+    const quizScore = totalQuestionsAttempted > 0 ? totalScore / totalQuestionsAttempted *100: 0;
+    
     // 2. Interview Submissions: Each interview submission has an 'overallRating'
     const interviewSubs = await InterviewSubmission.find({ userId });
     const interviewScore =
       interviewSubs.length > 0
-        ? interviewSubs.reduce((sum, sub) => sum + (sub.overallRating || 0), 0) / interviewSubs.length
+        ? interviewSubs.reduce((sum, sub) => sum + (sub.overallRating *10 || 0), 0) / interviewSubs.length
         : 0;
 
     // 3. Compiler Submissions: Calculate a score per submission as a percentage
@@ -108,6 +215,63 @@ console.log("Compiler:", compilerSubs);
 
   }
 });
+
+
+app.get("/api/all-combined-scores", async (req, res) => {
+  try {
+    const users = await userModel.find(); // Fetch all users
+
+    // Calculate combined scores for each user
+    const combinedScores = await Promise.all(users.map(async (user) => {
+      const userId = user._id;
+
+      // Calculate quiz score
+      const quizSubs = await Submission.find({ userId });
+      const totalQuestionsAttempted = quizSubs.reduce((sum, sub) => sum + sub.totalQuestions, 0);
+      const totalScore = quizSubs.reduce((sum, sub) => sum + sub.score, 0);
+      const quizScore = totalQuestionsAttempted > 0 ? (totalScore / totalQuestionsAttempted) * 100 : 0;
+
+      // Calculate interview score
+      const interviewSubs = await InterviewSubmission.find({ userId });
+      const interviewScore = interviewSubs.length > 0
+        ? interviewSubs.reduce((sum, sub) => sum + (sub.overallRating * 10 || 0), 0) / interviewSubs.length
+        : 0;
+
+      // Calculate compiler score
+      const compilerSubs = await CompilerSubmission.find({ userId });
+      let compilerScore = 0;
+      let totalPassedCases = 0;
+      let totalTestCases = 0;
+
+      if (compilerSubs.length > 0) {
+        const scores = compilerSubs.map(sub => {
+          const passedCases = sub.passedCount || 0;
+          const testCases = sub.totalTestCases || 0;
+          totalPassedCases += passedCases;
+          totalTestCases += testCases;
+          return testCases > 0 ? (passedCases / testCases) * 100 : 0;
+        });
+
+        compilerScore = scores.reduce((sum, val) => sum + val, 0) / scores.length;
+      }
+
+      // Calculate combined average
+      const combinedAverage = (quizScore + interviewScore + compilerScore) / 3;
+
+      return { userId, name: user.name, admissionNo: user.admissionNo, combinedAverage };
+    }));
+
+    // Sort users by combinedAverage to find the topper
+    combinedScores.sort((a, b) => b.combinedAverage - a.combinedAverage);
+
+    res.status(200).json(combinedScores);
+  } catch (error) {
+    console.error("Error fetching combined scores:", error);
+    res.status(500).json({ error: "Failed to fetch combined scores" });
+  }
+});
+
+
 app.get("/api/weekly-scores/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
@@ -215,6 +379,112 @@ app.get("/api/interviews/weeks", async (req, res) => {
   } catch (error) {
     console.error("Error fetching weeks:", error);
     res.status(500).json({ error: "Failed to fetch weeks" });
+  }
+});
+
+
+
+app.get('/api/interviewweek-ranges', async (req, res) => {
+  try {
+    // Find the max week value
+    const maxWeek = await InterviewSubmission.find()
+      .sort({ week: -1 })
+      .limit(1)
+      .select('week');
+
+    const ranges = [];
+    if (maxWeek.length > 0) {
+      const currentMaxWeek = maxWeek[0].week;
+      for (let i = 1; i <= currentMaxWeek; i += 4) {
+        if (i + 3 <= currentMaxWeek) {
+          ranges.push(`Week ${i} to Week ${i + 3}`);
+        }
+      }
+    }
+    res.json(ranges);
+  } catch (error) {
+    console.error('Error fetching week ranges:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+app.get('/api/interviewscores/:startWeek/:endWeek', async (req, res) => {
+  const { startWeek, endWeek } = req.params;
+
+  try {
+    // Fetch submissions for the selected week range, excluding entries with null userId.
+    // Only include submissions where the populated user has course 'MCA'.
+    const submissions = await InterviewSubmission.find({
+      week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+      userId: { $ne: null }
+    }).populate({
+      path: 'userId',
+      select: 'name admissionno rollno courseYear email course',
+      match: { batch: 'MCA' }
+    });
+
+    // Filter out submissions where the user didn't match (i.e. population resulted in null)
+    const validSubmissions = submissions.filter(submission => submission.userId);
+
+    // Aggregate scores per user
+    const userScores = {};
+    validSubmissions.forEach((submission) => {
+      if (submission.userId && submission.userId._id) {
+        if (!userScores[submission.userId._id]) {
+          userScores[submission.userId._id] = {
+            user: submission.userId,
+            score: 0,
+          };
+        }
+        userScores[submission.userId._id].score += submission.combinedAverage; // Adjust score field as needed
+      }
+    });
+
+    res.json(Object.values(userScores));
+  } catch (error) {
+    console.error('Error fetching scores:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
+
+app.get('/api/mbainterviewscores/:startWeek/:endWeek', async (req, res) => {
+  const { startWeek, endWeek } = req.params;
+
+  try {
+    // Fetch submissions for the selected week range, excluding entries with null userId.
+    // Only include submissions where the populated user has course 'MCA'.
+    const submissions = await InterviewSubmission.find({
+      week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+      userId: { $ne: null }
+    }).populate({
+      path: 'userId',
+      select: 'name admissionno rollno courseYear email course batch',
+      match: { batch: 'MBA' }
+    });
+
+    // Filter out submissions where the user didn't match (i.e. population resulted in null)
+    const validSubmissions = submissions.filter(submission => submission.userId);
+
+    // Aggregate scores per user
+    const userScores = {};
+    validSubmissions.forEach((submission) => {
+      if (submission.userId && submission.userId._id) {
+        if (!userScores[submission.userId._id]) {
+          userScores[submission.userId._id] = {
+            user: submission.userId,
+            score: 0,
+          };
+        }
+        userScores[submission.userId._id].score += submission.combinedAverage; // Adjust score field as needed
+      }
+    });
+
+    res.json(Object.values(userScores));
+  } catch (error) {
+    console.error('Error fetching scores:', error);
+    res.status(500).send('Server Error');
   }
 });
 
@@ -663,45 +933,44 @@ app.post('/api/addtimeslot', async (req, res) => {
   if (!userIds || !Array.isArray(userIds) || userIds.length === 0) {
     return res.status(400).json({ status: 'error', message: 'No userIds provided' });
   }
-  
+
   try {
     const newDate = new Date(date);
     const month = newDate.getMonth();
     const year = newDate.getFullYear();
-    
-    // Group selected users by courseYear.
+
+    // Group selected users by courseYear
     const usersByCourse = {};
     const users = await userModel.find({ _id: { $in: userIds } });
+
     users.forEach(user => {
       if (!usersByCourse[user.courseYear]) {
         usersByCourse[user.courseYear] = [];
       }
       usersByCourse[user.courseYear].push(user._id);
     });
-    
-    // Define the date range for the given month.
+
+    // Define the date range for the given month
     const startDate = new Date(year, month, 1);
     const endDate = new Date(year, month + 1, 0, 23, 59, 59, 999);
-    
+
     // Process each courseYear group
     for (let courseYear in usersByCourse) {
-      // Get all users in this course year that already have timeSlots in this month.
       const usersInCourse = await userModel.find({ 
         courseYear,
         "timeSlots.date": { $gte: startDate, $lte: endDate }
       }, { timeSlots: 1 });
-      
-      // Gather existing groups for this month and courseYear.
+
+      // Gather existing groups for this month and courseYear
       const existingGroups = {};
       let maxGroupNumber = 0;
+
       usersInCourse.forEach(user => {
         user.timeSlots.forEach(slot => {
           const slotDate = new Date(slot.date);
           if (slotDate >= startDate && slotDate <= endDate) {
             if (slot.timeSlot) {
-              // Map the timeSlot to its group.
               existingGroups[slot.timeSlot] = slot.group;
-              // Expected format: `${courseYear}-Group<number>`
               const parts = slot.group.split('Group');
               if (parts.length === 2) {
                 const num = parseInt(parts[1], 10);
@@ -713,17 +982,17 @@ app.post('/api/addtimeslot', async (req, res) => {
           }
         });
       });
-      
-      // Determine the group for the new timeSlot.
-      // If it already exists, reuse its group; otherwise, assign a new group.
+
       let group;
       if (existingGroups[timeSlot]) {
         group = existingGroups[timeSlot];
       } else {
         group = `${courseYear}-Group${maxGroupNumber + 1}`;
       }
-      
-      // For each user in this courseYear group, update if they haven't already booked the timeSlot.
+
+      // List of users who will receive emails
+      const usersToNotify = [];
+
       for (let userId of usersByCourse[courseYear]) {
         const user = await userModel.findById(userId);
         const isSlotBooked = user.timeSlots.some(slot => {
@@ -732,20 +1001,38 @@ app.post('/api/addtimeslot', async (req, res) => {
                  slotDate.getMonth() === month &&
                  slotDate.getFullYear() === year;
         });
-        if (isSlotBooked) {
-          continue; // Skip users that already have this time slot booked.
+
+        if (!isSlotBooked) {
+          await userModel.findByIdAndUpdate(userId, {
+            $push: { timeSlots: { timeSlot, date, meetingLink, group } },
+          });
+
+          usersToNotify.push(user); // Collect users to send emails
         }
-        await userModel.findByIdAndUpdate(userId, {
-          $push: { timeSlots: { timeSlot, date, meetingLink, group } },
+      }
+
+      // Send emails to newly assigned users
+      for (let user of usersToNotify) {
+        const mailOptions = {
+          from: "your-email@gmail.com",
+          to: user.email,
+          subject: "New Time Slot Assigned 📅",
+          text: `Hello ${user.name},\n\nYou have been assigned a new time slot:\n\n📅 Date: ${date}\n⏰ Time Slot: ${timeSlot}\n🔗 Meeting Link: ${meetingLink || "N/A"}\n📌 Group: ${group}\n\nPlease be on time.\n\nBest Regards,`,
+        };
+
+        // Send email asynchronously
+        transporter.sendMail(mailOptions).catch(err => {
+          console.error(`Failed to send email to ${user.email}:`, err.message);
         });
       }
     }
-    
-    res.json({ status: 'success', message: 'Time slot added successfully for selected users, grouped by course year and time slot.' });
+
+    res.json({ status: 'success', message: 'Time slot added and emails sent successfully.' });
   } catch (error) {
+    console.error("Error adding time slot:", error);
     res.status(500).json({ status: 'error', message: error.message });
   }
-});
+});;
 
 // Fetch distinct months (you may want to adjust this based on your data structure)
 
@@ -1007,19 +1294,9 @@ try {
 });
 
 
-const multer = require('multer');
+
 const Jobsubmission = require("./models/Jobsubmissions.js");
-app.use('/uploads', express.static('uploads')); // Serve the uploads folder
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-      cb(null, 'uploads'); // Directory to store uploaded images
-    },
-    filename: (req, file, cb) => {
-      cb(null, `${Date.now()}-${file.originalname}`); // File naming convention
-    },
-  });
-  
-  const upload = multer({ storage });// Route to handle form submissions
+// Route to handle form submissions
   app.post('/api/offcampussubmit-form', upload.single('image'), async (req, res) => {
     const { companyName, salary, applicationLink, location } = req.body;
     const imagePath = req.file ? req.file.path : null; // Get the uploaded image path
@@ -1137,6 +1414,46 @@ app.delete('/api/mcadeleteStudents', async (req, res) => {
     return res.status(500).json({ message: 'An error occurred while deleting MCA students.' });
   }
 });
+
+app.get('/api/interviewss', async (req, res) => {
+  try {
+      const interviews = await Interview.find();
+      res.json({ status: 'success', interviews });
+  } catch (error) {
+      console.error('Error fetching interviews:', error);
+      res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+});
+
+// Delete a single interview by ID
+app.delete('/api/interviews/:id', async (req, res) => {
+  try {
+      await Interview.findByIdAndDelete(req.params.id);
+      res.json({ status: 'success', message: 'Interview deleted' });
+  } catch (error) {
+      console.error('Error deleting interview:', error);
+      res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+});
+
+// Delete all interviews for a specific job position
+app.delete('/submissions/week/:week', async (req, res) => {
+  try {
+      const week = req.params.week;
+
+      // Delete all submissions for the specified week
+      const result = await InterviewSubmission.deleteMany({ week });
+
+      
+
+      res.json({ status: 'success', message: `All submissions for week ${week} deleted` });
+  } catch (error) {
+      console.error('Error deleting submissions:', error);
+      res.status(500).json({ status: 'error', message: 'Server error' });
+  }
+});
+
+
 app.post('/api/mbaupdateCourseYear', async (req, res) => {
   try {
     // Update only MCA students from First Year to Second Year
@@ -1228,15 +1545,46 @@ app.delete('/api/btechdeleteStudents', async (req, res) => {
   }
 });
 
+const nodemailer = require("nodemailer");
+
 // Route to approve a user by ID
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: "rizwanps2001@gmail.com", // Replace with your email
+    pass: "wxgzghrhdpxoezcm", // Use an App Password for security
+  },
+});
+
 app.put("/approve/:id", async (req, res) => {
   try {
-      await userModel.findByIdAndUpdate(req.params.id, { approved: true });
-      res.json({ message: "User approved successfully" });
+    // Find the user by ID
+    const user = await userModel.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update approval status
+    await userModel.findByIdAndUpdate(req.params.id, { approved: true });
+
+    // Email content
+    const mailOptions = {
+      from: "your-email@gmail.com",
+      to: user.email,
+      subject: "Account Approved ✅",
+      text: `Hello ${user.name},\n\nYour account has been successfully approved. You can now log in and access all features.\n\nThank you!`,
+    };
+
+    // Send email
+    await transporter.sendMail(mailOptions);
+
+    res.json({ message: "User approved and email sent successfully" });
   } catch (error) {
-      res.json({ status: "error", message: error.message });
+    console.error("Error approving user:", error);
+    res.status(500).json({ status: "error", message: error.message });
   }
 });
+
 
 app.delete('/users/delete/:id', async (req, res) => {
   try {
@@ -1861,6 +2209,45 @@ app.get('/api/scores/:startWeek/:endWeek', async (req, res) => {
 });
 
 
+
+app.get('/api/mbascoresss/:startWeek/:endWeek', async (req, res) => {
+  const { startWeek, endWeek } = req.params;
+
+  try {
+    // Fetch submissions for the selected week range, including only MBA students
+    const submissions = await Submission.find({
+      week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+      userId: { $ne: null } // Exclude submissions with null userId
+    }).populate({
+      path: 'userId',
+      select: 'name admissionno rollno courseYear email score',
+      match: { batch: /MBA/i } // Filter only MBA students
+    });
+
+    // Aggregate scores per user, ensuring only MBA users are included
+    const userScores = {};
+    submissions.forEach((submission) => {
+      if (submission.userId && submission.userId._id) {
+        if (!userScores[submission.userId._id]) {
+          userScores[submission.userId._id] = {
+            user: submission.userId,
+            score: 0,
+          };
+        }
+        userScores[submission.userId._id].score += submission.score;
+      }
+    });
+
+    // Convert to array
+    const scoresArray = Object.values(userScores);
+    res.json(scoresArray);
+  } catch (error) {
+    console.error('Error fetching MBA scores:', error);
+    res.status(500).send('Server Error');
+  }
+});
+
+
 app.get('/api/week-ranges', async (req, res) => {
   try {
     const maxWeek = await Submission.find()
@@ -2231,6 +2618,11 @@ const executeCode = (code, language, input, callback) => {
       });
 
       pythonProcess.on('close', (code) => {
+        // Regular expression to remove file paths and unwanted characters
+        const pathRegex = /File ".*Main\.py", /g;
+        pythonError = pythonError.replace(pathRegex, ''); // Remove file path
+        pythonError = pythonError.replace(/["',]/g, ''); // Remove ", and '
+
         if (code !== 0) {
           callback(pythonError.trim(), null);
         } else {
@@ -2238,7 +2630,6 @@ const executeCode = (code, language, input, callback) => {
         }
       });
       return;
-
     case 'java':
       command = 'javac';
       args = [fileName];
@@ -2252,7 +2643,8 @@ const executeCode = (code, language, input, callback) => {
 
       compileProcess.on('close', (code) => {
         if (code !== 0) {
-          return callback(compileError.trim(), null); // Send Java compilation error
+          compileError = compileError.replace(/Main\.java:\d+:\s/g, ''); // Remove file name from Java errors
+          return callback(compileError.trim(), null);
         }
 
         const runProcess = spawn('java', ['Main']);
@@ -2271,8 +2663,10 @@ const executeCode = (code, language, input, callback) => {
         });
 
         runProcess.on('close', (code) => {
+          error = error.replace(/Exception in thread "main" java\.lang\..*Main\.java:\d+/, ''); // Remove file name from Java runtime errors
+          
           if (code !== 0) {
-            callback(error.trim(), null); // Send Java runtime error
+            callback(error.trim(), null);
           } else {
             callback(null, output.trim());
           }
@@ -2293,27 +2687,33 @@ const executeCode = (code, language, input, callback) => {
 
       compileCProcess.on('close', (compileCode) => {
         if (compileCode !== 0) {
-          return callback(compileCError.trim(), null); // Send C compilation error
+          // Remove file references from C compilation errors
+          compileCError = compileCError.replace(/Main\.c:\d+:\d+:/g, ''); 
+          compileCError = compileCError.replace(/\[-W.*\]/g, ''); // Remove warning codes
+          return callback(compileCError.trim(), null);
         }
-
+    
         const runCProcess = spawn('./code');
         let output = '';
         let error = '';
-
+    
         runCProcess.stdin.write(input);
         runCProcess.stdin.end();
-
+    
         runCProcess.stdout.on('data', (data) => {
           output += data.toString();
         });
-
+    
         runCProcess.stderr.on('data', (data) => {
           error += data.toString();
         });
-
+    
         runCProcess.on('close', (runCode) => {
+          // Remove file references from C runtime errors
+          error = error.replace(/Main\.c:\d+:\d+:/g, '');
+          
           if (runCode !== 0) {
-            callback(error.trim(), null); // Send C runtime error
+            callback(error.trim(), null);
           } else {
             callback(null, output.trim());
           }
@@ -2984,61 +3384,188 @@ app.delete('/api/delete-submission', async (req, res) => {
       res.status(500).json({ message: 'Error fetching submissions and non-submissions', error: error.message });
     }
   });
+
+  app.get('/api/mbascoress/:startWeek/:endWeek', async (req, res) => {
+    const { startWeek, endWeek } = req.params;
   
-app.get('/api/scoress/:startWeek/:endWeek', async (req, res) => {
-  const { startWeek, endWeek } = req.params;
+    try {
+      // Fetch submissions within the specified week range and join with users
+      const submissions = await CompilerSubmission.aggregate([
+        {
+          $match: {
+            week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users', // Name of the users collection
+            localField: 'userId', // Field from CompilerSubmission
+            foreignField: '_id', // Field from users collection
+            as: 'userDetails', // Output array field
+          },
+        },
+        {
+          $unwind: '$userDetails', // Unwind to flatten the userDetails array
+        },
+        {
+          $match: {
+            'userDetails.batch': { $regex: /MBA/i }, // Case-insensitive match for MCA students
+          },
+        },
+        {
+          $group: {
+            _id: "$userId", // Group by user ID
+            totalScore: { $sum: "$passedCount" }, // Sum passedCount for total score
+            userDetails: { $first: "$userDetails" }, // Get user details from the first submission
+          },
+        },
+        {
+          $sort: { totalScore: -1 }, // Sort by total score descending
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: "$_id",
+            name: "$userDetails.name",
+            admissionNo: "$userDetails.admissionno",
+            rollNo: "$userDetails.rollno",
+            courseYear: "$userDetails.courseYear",
+            email: "$userDetails.email",
+            score: "$totalScore",
+          },
+        },
+      ]);
+  
+      // Return the result
+      res.json(submissions);
+    } catch (error) {
+      console.error('Error fetching scores:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  app.get('/api/scoress/:startWeek/:endWeek', async (req, res) => {
+    const { startWeek, endWeek } = req.params;
+  
+    try {
+      // Fetch submissions within the specified week range and join with users
+      const submissions = await CompilerSubmission.aggregate([
+        {
+          $match: {
+            week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users', // Name of the users collection
+            localField: 'userId', // Field from CompilerSubmission
+            foreignField: '_id', // Field from users collection
+            as: 'userDetails', // Output array field
+          },
+        },
+        {
+          $unwind: '$userDetails', // Unwind to flatten the userDetails array
+        },
+        {
+          $match: {
+            'userDetails.batch': { $regex: /MCA/i }, // Case-insensitive match for MCA students
+          },
+        },
+        {
+          $group: {
+            _id: "$userId", // Group by user ID
+            totalScore: { $sum: "$passedCount" }, // Sum passedCount for total score
+            userDetails: { $first: "$userDetails" }, // Get user details from the first submission
+          },
+        },
+        {
+          $sort: { totalScore: -1 }, // Sort by total score descending
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: "$_id",
+            name: "$userDetails.name",
+            admissionNo: "$userDetails.admissionno",
+            rollNo: "$userDetails.rollno",
+            courseYear: "$userDetails.courseYear",
+            email: "$userDetails.email",
+            score: "$totalScore",
+          },
+        },
+      ]);
+  
+      // Return the result
+      res.json(submissions);
+    } catch (error) {
+      console.error('Error fetching scores:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
 
-  try {
-    // Fetch submissions within the specified week range and join with users
-    const submissions = await CompilerSubmission.aggregate([
-      {
-        $match: {
-          week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
-        },
-      },
-      {
-        $lookup: {
-          from: 'users', // Name of the users collection
-          localField: 'userId', // Field from CompilerSubmission
-          foreignField: '_id', // Field from users collection
-          as: 'userDetails', // Output array field
-        },
-      },
-      {
-        $unwind: '$userDetails', // Unwind to flatten the userDetails array
-      },
-      {
-        $group: {
-          _id: "$userId", // Group by user ID
-          totalScore: { $sum: "$passedCount" }, // Sum passedCount for total score
-          userDetails: { $first: "$userDetails" }, // Get user details from the first submission
-        },
-      },
-      {
-        $sort: { totalScore: -1 }, // Sort by total score descending
-      },
-      {
-        $project: {
-          _id: 0,
-          userId: "$_id",
-          name: "$userDetails.name",
-          admissionNo: "$userDetails.admissionno",
-          rollNo: "$userDetails.rollno",
-          courseYear: "$userDetails.courseYear",
-          email: "$userDetails.email",
-          score: "$totalScore",
-        },
-      },
-    ]);
 
-    // Return the result
-    res.json(submissions);
-  } catch (error) {
-    console.error('Error fetching scores:', error);
-    res.status(500).json({ message: 'Internal server error' });
-  }
-});
 
+  app.get('/api/btechscoresss/:startWeek/:endWeek', async (req, res) => {
+    const { startWeek, endWeek } = req.params;
+  
+    try {
+      // Fetch submissions within the specified week range and join with users
+      const submissions = await CompilerSubmission.aggregate([
+        {
+          $match: {
+            week: { $gte: parseInt(startWeek), $lte: parseInt(endWeek) },
+          },
+        },
+        {
+          $lookup: {
+            from: 'users', // Name of the users collection
+            localField: 'userId', // Field from CompilerSubmission
+            foreignField: '_id', // Field from users collection
+            as: 'userDetails', // Output array field
+          },
+        },
+        {
+          $unwind: '$userDetails', // Unwind to flatten the userDetails array
+        },
+        {
+          $match: {
+            'userDetails.batch': { 
+              $not: { $regex: /(MCA|MBA)/i } // Exclude MCA and MBA (case-insensitive)
+            }
+          },
+        },
+        {
+          $group: {
+            _id: "$userId", // Group by user ID
+            totalScore: { $sum: "$passedCount" }, // Sum passedCount for total score
+            userDetails: { $first: "$userDetails" }, // Get user details from the first submission
+          },
+        },
+        {
+          $sort: { totalScore: -1 }, // Sort by total score descending
+        },
+        {
+          $project: {
+            _id: 0,
+            userId: "$_id",
+            name: "$userDetails.name",
+            admissionNo: "$userDetails.admissionno",
+            rollNo: "$userDetails.rollno",
+            courseYear: "$userDetails.courseYear",
+            email: "$userDetails.email",
+            score: "$totalScore",
+          },
+        },
+      ]);
+  
+      // Return the result
+      res.json(submissions);
+    } catch (error) {
+      console.error('Error fetching scores:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+  
 // Export the router to use in your main app
 // Add this endpoint in your router file
 // Add this endpoint in your router file
@@ -3120,6 +3647,32 @@ app.get('/api/submissions-and-non-submissionscompiler/:week', async (req, res) =
       console.error('Error fetching submissions and non-submissions:', error);
       res.status(500).json({ message: 'Error fetching submissions and non-submissions', error: error.message });
   }
+});
+
+
+const AttendanceSchema = new mongoose.Schema({
+  userId: String,
+  roomid: String,
+  joinTime: Date,
+  leaveTime: Date
+});
+
+const Attendance = mongoose.model('Attendance', AttendanceSchema);
+
+
+
+// Store Join Time
+app.post('/api/trackAttendance', async (req, res) => {
+  const { userId, roomid, joinTime } = req.body;
+  await Attendance.create({ userId, roomid, joinTime });
+  res.send({ message: "Attendance started" });
+});
+
+// Store Leave Time
+app.put('/api/trackAttendance', async (req, res) => {
+  const { userId, roomid, leaveTime } = req.body;
+  await Attendance.findOneAndUpdate({ userId, roomid }, { leaveTime });
+  res.send({ message: "Attendance updated" });
 });
 
 // Start the Server

@@ -102,6 +102,7 @@ const Adminnavbar = () => {
              
                 
                 <li><a className="dropdown-item" href="/createinterview">CREATE INTERVIEW</a></li>
+                <li><a className="dropdown-item" href="/deleteinterview">DELETE INTERVIEW</a></li>
            
               </ul>
             </div>

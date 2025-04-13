@@ -2,10 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Mcanavbar from './Mcaanavbar';
-import Mbanavbar from './Mbanavbar';
 
 
-const AscoreTable = () => {
+const MbascoreTable = () => {
   const [weekRanges, setWeekRanges] = useState([]); // State to store week ranges
   const [selectedWeeks, setSelectedWeeks] = useState(''); // State to track selected weeks
   const [scores, setScores] = useState([]); // State to store scores
@@ -35,7 +34,7 @@ const AscoreTable = () => {
     const endWeek = weeks ? parseInt(weeks[1]) : 4;
 
     try {
-      const response = await axios.get(`http://localhost:5000/api/scores/${startWeek}/${endWeek}`);
+      const response = await axios.get(`http://localhost:5000/api/mbascoresss/${startWeek}/${endWeek}`);
       setScores(response.data); // Update scores state with fetched data
     } catch (error) {
       console.error('Error fetching scores:', error);
@@ -53,7 +52,7 @@ const AscoreTable = () => {
 
   return (
     <div>
-        <Mbanavbar/>
+        <Mcanavbar/>
   
     <div className="score-table-container">
       <h2 className="header">Score Table</h2>
@@ -164,4 +163,4 @@ const AscoreTable = () => {
   );
 };
 
-export default AscoreTable;
+export default MbascoreTable;

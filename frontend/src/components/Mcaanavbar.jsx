@@ -42,7 +42,7 @@ const Mcanavbar = () => {
               <ul className="dropdown-menu">
                 
                 <li><a className="dropdown-item" href="/joblist">View Registrations</a></li>
-                <li><a className="dropdown-item" href="/deletejobs">Delete</a></li>
+ 
               </ul>
             </div>
 
@@ -56,17 +56,18 @@ const Mcanavbar = () => {
                 <li><a className="dropdown-item" href="/offdelete">Delete Off-Campus</a></li>
               </ul>
             </div>
-
-            INTERVIEW Dropdown
+{/* 
+            INTERVIEW Dropdown */}
             <div className="dropdown d-flex align-items-center mx-3">
               <a className="navbar-brand text-light dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                INTERVIEW
+                GD
               </a>
               <ul className="dropdown-menu">
                 <li><a className="dropdown-item" href="#" onClick={handleCreateRoom}>Mock Interview</a></li>
                 <li><a className="dropdown-item" href="/userlist">Add Time Slot</a></li>
                 <li><a className="dropdown-item" href="/monthpage">Review</a></li>
-                <li><a className="dropdown-item" href="/deletemonth">Delete</a></li>
+                <li><a className="dropdown-item" href="/meetings">Recordings</a></li>
+               
               </ul>
             </div>
 
@@ -80,7 +81,7 @@ const Mcanavbar = () => {
                 <li><a className="dropdown-item" href="/weeklist">Aptitude Attendance</a></li>
             
                 <li><a className="dropdown-item" href="/mcascoretable">Result</a></li>
-                <li><a className="dropdown-item" href="/deletequiz">Deletion</a></li>
+           
               </ul>
             </div>
 
@@ -94,7 +95,7 @@ const Mcanavbar = () => {
                 <li><a className="dropdown-item" href="/submissionweeks">Coding Attendance</a></li>
     
                 <li><a className="dropdown-item" href="/mcaFourweek">Result</a></li>
-                <li><a className="dropdown-item" href="/deletecode">Deletion</a></li>
+               
               </ul>
             </div>
 
@@ -105,7 +106,9 @@ const Mcanavbar = () => {
               </a>
               <ul className="dropdown-menu">
     
-                <li><a className="dropdown-item" href="/jobposition">INTERVIEW ATTENDENCE</a></li>
+                <li><a className="dropdown-item" href="/jobposition">Attendence</a></li>
+                <li><a className="dropdown-item" href="/interviewtoppers">Result</a></li>
+                <li><a className="dropdown-item" href="/deleteinterview"></a>Delete</li>
            
               </ul>
             </div>

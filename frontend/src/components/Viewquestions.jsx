@@ -5,6 +5,7 @@ import SpeechRecognition, { useSpeechRecognition } from "react-speech-recognitio
 import Webcam from "react-webcam";
 import * as faceapi from "face-api.js"; // Import Face-api.js
 import Usernavbar1 from "./Usernavbar1";
+ 
 
 function ViewQuestions() {
   const { interviewId } = useParams();
@@ -371,16 +372,21 @@ function ViewQuestions() {
         </div>
       ) : (
         <div className="feedback-card">
-          <h2 className="feedback-title">Overall Feedback & Rating</h2>
-          <h3 className="time-taken">
-            Total Time Taken: {Math.floor(totalTimeTaken / 60)} minutes {totalTimeTaken % 60} seconds
-          </h3>
-          {Object.entries(feedback).map(([index, fb]) => (
+        <h2 className="feedback-title">Overall Feedback & Rating</h2>
+        <h3 className="time-taken">
+        
+        </h3>
+        {Object.entries(feedback)
+          .map(([key, fb]) => ({ index: Number(key), feedback: fb }))
+          .sort((a, b) => a.index - b.index)
+          .map(({ index, feedback }) => (
             <div key={index} className="feedback-item">
-              <h4>Question {parseInt(index) + 1}:</h4>
-              <p>{fb}</p>
+              <h4>Question {index}:</h4>
+              <p>{feedback}</p>
             </div>
           ))}
+      
+      
           <h3 className="final-rating">Final Rating: {overallRating}/10</h3>
           <h3 className="final-face-score">Overall Average Face Score: {overallFaceScoreComputed}</h3>
           <h3 className="combined-average">Combined Average (Rating & Face Score): {combinedAverageDisplay}</h3>

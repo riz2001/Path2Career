@@ -1,5 +1,6 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Usernavbar1 from './Usernavbar1';
 
 const Qusers = () => {
@@ -112,6 +113,12 @@ const Qusers = () => {
       color: 'red',
       marginBottom: '20px',
     },
+    graphHeading: {
+      color: '#333333',
+      fontSize: '24px',
+      marginTop: '40px',
+      marginBottom: '20px',
+    }
   };
 
   return (
@@ -176,6 +183,17 @@ const Qusers = () => {
             ))}
           </tbody>
         </table>
+
+        <h2 style={styles.graphHeading}>Score Trend</h2>
+        <ResponsiveContainer width="100%" height={300}>
+          <LineChart data={filteredSubmissions.map(sub => ({ week: sub.week, score: sub.score }))}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="week" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="score" stroke="#007bff" strokeWidth={2} />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

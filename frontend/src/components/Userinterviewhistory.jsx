@@ -67,6 +67,7 @@ const UserInterviewHistory = () => {
           <thead>
             <tr style={{ backgroundColor: '#007bff', color: 'white' }}>
               <th style={{ padding: '10px', textAlign: 'left' }}>Job Position</th>
+              <th style={{ padding: '10px', textAlign: 'left' }}>Week</th>
        
               <th style={{ padding: '10px', textAlign: 'left' }}>Overall Rating</th>
               <th style={{ padding: '10px', textAlign: 'left' }}>Total Time</th>
@@ -77,6 +78,7 @@ const UserInterviewHistory = () => {
             {filteredSubmissions.map((sub, index) => (
               <tr key={sub._id} style={{ backgroundColor: index % 2 === 0 ? '#f9f9f9' : '#fff' }}>
                 <td style={{ padding: '10px' }}>{sub.jobPosition}</td>
+                <td style={{ padding: '10px' }}>{sub.week}</td>
                 <td style={{ padding: '10px' }}>{sub.combinedAverage}</td>
                 <td style={{ padding: '10px' }}>{sub.totalTimeTaken}</td>
 

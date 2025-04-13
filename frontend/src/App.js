@@ -83,6 +83,14 @@ import MbaUsersList from './components/Mbauserlist';
 import MbaMonthPage from './components/Mbamonth';
 import BtechMonthPage from './components/Btechmonthpage';
 import BtechUsersList from './components/Btechuserlist';
+import Interviewdelete from './components/Interviewdelete';
+import Interviewtoppers from './components/Interviewtoppers';
+import Mbatoppers from './components/Mbatoppers';
+import VideoDisplay from './components/Videodisplay';
+import MeetingsTable from './components/Videodisplay';
+import Meetings from './components/Meetings';
+import './components/Background.css'; 
+
 
 function App() {
   return (
@@ -98,6 +106,9 @@ function App() {
     <Route path='mcasubmissions/:jobPosition' element={<Interviewsubmission/>}/>
     <Route path='mbasubmissions/:jobPosition' element={<Mbainterviewsubmission/>}/>
     <Route path='btechsubmissions/:jobPosition' element={<Btechinterviewsubmission/>}/>
+    <Route path="/interviewdelete" element={<Interviewdelete />} />
+    <Route path="/interviewtoppers" element={<Interviewtoppers/>} />
+    <Route path="/mbatoppers" element={<Mbatoppers/>} />
 
 
     <Route path="/monthpage" element={<MonthPage/>} />  
@@ -150,6 +161,7 @@ function App() {
     <Route path="/Soffcampus" element={<Soffcampus/>} />
     <Route path="/offdelete" element={<Offdelete/>} />
     <Route path="/prediction" element={<Prediction/>} />
+   
 
    <Route path="/weeklist" element={<Aweekslist/>} />
    <Route path="/mbaweeklist" element={<Mbaweekslist/>} />
@@ -181,6 +193,7 @@ function App() {
     <Route path='/roomhome' element={<Roomhome />}/>
       <Route path='/adminroomhome' element={<Adminroom />}/>
       <Route path='/room/:roomid' element={<Room />}/>
+      <Route path='/meetings' element={<Meetings />}/>
 
       
  

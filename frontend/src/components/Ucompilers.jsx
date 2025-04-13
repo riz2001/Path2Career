@@ -1,11 +1,12 @@
 import axios from 'axios';
 import React, { useEffect, useState } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import Usernavbar1 from './Usernavbar1';
 
 const Ucompilers = () => {
     const [submissions, setSubmissions] = useState([]);
     const [error, setError] = useState(null);
-    const [companyFilter, setCompanyFilter] = useState(''); // New state for company filter
+    const [companyFilter, setCompanyFilter] = useState(''); // State for company filter
     const userId = sessionStorage.getItem("userId"); // Retrieve userId from sessionStorage
 
     const fetchCompilerSubmissions = async () => {
@@ -38,6 +39,12 @@ const Ucompilers = () => {
     const filteredSubmissions = companyFilter
         ? submissions.filter(sub => sub.company === companyFilter)
         : submissions;
+
+    // Prepare chart data using only passed test cases
+    const chartData = filteredSubmissions.map(submission => ({
+        week: submission.week,
+        passed: submission.passedCount,
+    }));
 
     // Inline CSS styles
     const styles = {
@@ -104,6 +111,12 @@ const Ucompilers = () => {
             color: 'red',
             marginBottom: '20px',
         },
+        graphHeading: {
+            color: '#333333',
+            fontSize: '24px',
+            marginTop: '40px',
+            marginBottom: '20px',
+        }
     };
 
     return (
@@ -167,6 +180,18 @@ const Ucompilers = () => {
                         ))}
                     </tbody>
                 </table>
+
+                {/* Chart Section using only Passed Test Cases */}
+                <h2 style={styles.graphHeading}>Passed Test Cases Trend</h2>
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="week" />
+                        <YAxis />
+                        <Tooltip />
+                        <Line type="monotone" dataKey="passed" stroke="#28a745" strokeWidth={2} name="Passed Test Cases" />
+                    </LineChart>
+                </ResponsiveContainer>
             </div>
         </div>
     );

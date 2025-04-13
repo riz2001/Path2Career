@@ -34,7 +34,7 @@ const McascoreTable = () => {
     const endWeek = weeks ? parseInt(weeks[1]) : 4;
 
     try {
-      const response = await axios.get(`http://localhost:5000/api/scores/${startWeek}/${endWeek}`);
+      const response = await axios.get(`http://localhost:5000/api/mbascoresss/${startWeek}/${endWeek}`);
       setScores(response.data); // Update scores state with fetched data
     } catch (error) {
       console.error('Error fetching scores:', error);

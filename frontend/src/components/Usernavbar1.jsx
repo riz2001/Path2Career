@@ -37,7 +37,7 @@ const Usernavbar1 = () => {
     <nav className="navbar bg-dark border-bottom border-body" data-bs-theme="dark">
       <div className="container-fluid">
         <div className="d-flex justify-content-end align-items-center">
-          <a className="navbar-brand text-light" href="#"><b>JOB CRACKER</b></a>
+          <a className="navbar-brand text-light" href="#"><b>PATH2CAREER</b></a>
           <a className="navbar-brand text-light" href="/dashboard">DASHBOARD</a>
           
           {/* VIEW JOBS */}
@@ -52,7 +52,7 @@ const Usernavbar1 = () => {
               GD
             </a>
             <ul className="dropdown-menu" aria-labelledby="dropdownMenuLink">
-              <li><a className="dropdown-item" onClick={handleCreateRoom} style={styles.dropdownItem}>MOCK INTERVIEW</a></li>
+              <li><a className="dropdown-item" onClick={handleCreateRoom} style={styles.dropdownItem}>GD </a></li>
               <li><a className="dropdown-item" href="/user/timeslots" style={styles.dropdownItem}>SLOT BOOKING</a></li>
             </ul>
           </div>

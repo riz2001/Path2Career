@@ -17,7 +17,7 @@ function Compiler() {
   const [passedCount, setPassedCount] = useState(0);
 
   // Timer state: 30 seconds countdown
-  const [timeLeft, setTimeLeft] = useState(30);
+  const [timeLeft, setTimeLeft] = useState(150);
   // Use a ref to ensure auto submission is triggered only once.
   const autoSubmitCalled = useRef(false);
 
@@ -254,21 +254,24 @@ function Compiler() {
           </div>
 
           <div style={styles.inputContainer}>
-            <label style={styles.label}>Code:</label>
-            <div style={{ display: 'flex' }}>
-              <div style={styles.lineNumbers}>
-                {code.split('\n').map((_, index) => (
-                  <div key={index}>{index + 1}</div>
-                ))}
-              </div>
-              <textarea
-                style={styles.codeEditor}
-                rows="10"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-              />
-            </div>
-          </div>
+  <label style={styles.label}>Code:</label>
+  <div style={{ display: 'flex' }}>
+    <div style={styles.lineNumbers}>
+      {code.split('\n').map((_, index) => (
+        <div key={index}>{index + 1}</div>
+      ))}
+    </div>
+    <textarea
+      style={styles.codeEditor}
+      rows="10"
+      value={code}
+      onChange={(e) => setCode(e.target.value)}
+      onCopy={(e) => e.preventDefault()} // Disable copy
+      onPaste={(e) => e.preventDefault()} // Disable paste
+      onCut={(e) => e.preventDefault()} // Disable cut
+    />
+  </div>
+</div>
 
           <div style={styles.inputContainer}>
             <label style={styles.label}>Input:</label>

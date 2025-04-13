@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import Mcanavbar from './Mcaanavbar';
+import Btechnavbar from './Btechnavbar';
 
 const Btechweekcompilers = () => {
   const [weeks, setWeeks] = useState([]);
@@ -31,7 +32,7 @@ const Btechweekcompilers = () => {
 
   return (
     <div>
-      <Mcanavbar />
+      <Btechnavbar />
       <br />
       <div className="main-page">
         <h2 className="title">All Weeks Coding Submissions</h2>
